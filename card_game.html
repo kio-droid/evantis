@@ -1,0 +1,3863 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>カードゲーム プロトタイプ</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Meiryo, sans-serif;
+  background: #070b14;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ===== GAME CONTAINER ===== */
+#game-container {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0a0f1e;
+}
+
+/* ===== BATTLE HEADER ===== */
+#battle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg,#07091a,#0d1226);
+  padding: 6px 14px;
+  border-bottom: 1px solid #1a2a4a;
+  position: relative;
+}
+#turn-info { color: #a0c4ff; font-weight: bold; font-size: 0.85rem; }
+#score-info { color: #ffd166; font-size: 0.78rem; }
+#cpu-thinking {
+  display: none;
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  color: #ffd166;
+  font-size: 0.72rem;
+  background: #0f1830;
+  border: 1px solid #2a3a60;
+  border-radius: 4px;
+  padding: 2px 10px;
+  animation: blink 1s infinite;
+}
+
+/* ===== FIELD AREAS ===== */
+#enemy-area {
+  background: linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.1)), url('images/bg/doukutu.PNG') center/cover no-repeat;
+  padding: 6px 10px 4px;
+}
+#player-area {
+  background: linear-gradient(rgba(0,0,0,0.22), rgba(0,0,0,0.22)), url('images/bg/sougenn.PNG') center/cover no-repeat;
+  padding: 4px 10px 6px;
+}
+.field-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+  font-size: 0.68rem;
+  margin-bottom: 5px;
+}
+#enemy-area .field-meta { margin-bottom: 5px; margin-top: 0; }
+#player-area .field-meta { margin-top: 5px; margin-bottom: 0; }
+.battle-field {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 2px 0;
+}
+.destroy-counter {
+  background: rgba(90,20,20,0.6);
+  color: #ff9f7f;
+  border: 1px solid #5a2020;
+  border-radius: 10px;
+  padding: 1px 9px;
+  font-size: 0.68rem;
+}
+
+/* ===== BATTLE CARDS ===== */
+.battle-card {
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.15s, filter 0.15s;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.battle-card:hover { filter: brightness(1.18); transform: translateY(-3px); }
+.main-battle-card { width: 178px; height: auto; padding-bottom: 5px; }
+.sub-battle-card  { width: 115px; height: auto; padding-bottom: 4px; }
+
+.card-role-badge {
+  text-align: center;
+  background: rgba(0,0,0,0.5);
+  color: #99aacc;
+  font-size: 0.5rem;
+  padding: 0px 0;
+  letter-spacing: 0.3px;
+  margin: 2px 14px 0;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+.evolved-badge {
+  position: absolute;
+  top: 4px; right: 4px;
+  background: linear-gradient(135deg,#5a1a9a,#9b3fde);
+  color: #f0d0ff;
+  font-size: 0.52rem;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.card-art {
+  text-align: center;
+  line-height: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.main-battle-card .card-art { height: 155px; font-size: 5rem; }
+.sub-battle-card  .card-art { height: 92px;  font-size: 3rem; }
+.card-art img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.card-hp-bar-wrap {
+  background: rgba(0,0,0,0.45);
+  border-radius: 2px;
+  height: 4px;
+  margin: 4px 7px 1px;
+  overflow: hidden;
+}
+.card-hp-bar { height: 4px; border-radius: 2px; transition: width 0.3s; }
+
+.card-stats {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 7px 0;
+}
+.main-battle-card .card-stats { font-size: 0.64rem; }
+.sub-battle-card  .card-stats { font-size: 0.56rem; }
+.card-hp-text  { color: #7fff7f; }
+.card-atk-text { color: #ff9f7f; }
+
+.card-effect-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  border-radius: 4px;
+  font-size: 0.5rem;
+  padding: 1px 5px;
+  white-space: nowrap;
+  color: #c9a0ff;
+  border: 1px solid rgba(180,120,255,0.3);
+}
+.battle-card.evolved-glow {
+  box-shadow: 0 0 16px 3px rgba(160,90,255,0.55);
+}
+
+/* empty / next */
+.empty-slot {
+  border: 1.5px dashed #1e2e48;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1e2e48;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+.main-empty { width: 178px; height: 200px; }
+.sub-empty  { width: 115px; height: 130px; }
+.next-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  gap: 4px;
+  align-self: center;
+  color: #fff;
+  font-size: 0.78rem;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,1), 0 0 20px rgba(0,0,0,1);
+}
+.next-indicator .next-art { font-size: 1.8rem; }
+
+/* ===== ACTION CENTER ===== */
+#action-center {
+  background: #080d1a;
+  padding: 7px 10px 5px;
+  border-top: 1px solid #131e38;
+  border-bottom: 1px solid #131e38;
+}
+#phase-info {
+  text-align: center;
+  font-size: 0.68rem;
+  color: #3a4a6a;
+  margin-bottom: 5px;
+  letter-spacing: 1px;
+}
+#action-zone {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+.battle-btn {
+  padding: 7px 2px;
+  width: 80px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: bold;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1.2;
+  letter-spacing: 0.3px;
+}
+.battle-btn:disabled { opacity: 0.28; cursor: not-allowed; }
+.btn-icon { font-size: 1.05rem; line-height: 1; }
+
+.evolve-btn  { background: linear-gradient(160deg,#33086a,#6a1fbe); color: #ddb0ff; border-color: #7a3ace; }
+.evolve-btn:not(:disabled):hover  { background: linear-gradient(160deg,#4a10a0,#8a3ade); filter: brightness(1.1); }
+.swap-btn    { background: linear-gradient(160deg,#083350,#1060a0); color: #80c8ff; border-color: #2080cc; }
+.swap-btn:not(:disabled):hover    { background: linear-gradient(160deg,#104870,#2080cc); filter: brightness(1.1); }
+.use-btn     { background: linear-gradient(160deg,#0a2858,#1a5aaa); color: #90c8ff; border-color: #2a7aee; }
+.use-btn:not(:disabled):hover     { background: linear-gradient(160deg,#1a3888,#2a7aee); filter: brightness(1.1); }
+.attack-btn  { background: linear-gradient(160deg,#4a0808,#9a1818); color: #ff9090; border-color: #cc2222; }
+.attack-btn:not(:disabled):hover  { background: linear-gradient(160deg,#6a1010,#cc2828); filter: brightness(1.1); }
+.end-btn     { background: linear-gradient(160deg,#141a28,#222e48); color: #6070a0; border-color: #2a3860; }
+.end-btn:not(:disabled):hover     { background: linear-gradient(160deg,#1e2838,#2e3e58); color: #8090c0; }
+
+#btn-row2 { display: flex; gap: 5px; margin-bottom: 5px; }
+.dheal-btn {
+  flex: 1;
+  background: linear-gradient(135deg,#082040,#106090);
+  color: #70d0ff;
+  border: 1px solid #2090c0;
+}
+.dheal-btn:not(:disabled):hover { filter: brightness(1.15); }
+.cancel-btn {
+  background: #181c28;
+  color: #6070a0;
+  border: 1px solid #2a3050;
+}
+.cancel-btn:hover { background: #222840; color: #8090c0; }
+
+/* action state indicators */
+#turn-states {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+.action-state {
+  font-size: 0.62rem;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: #0e1422;
+  color: #2a3355;
+  border: 1px solid #1a2040;
+  transition: all 0.25s;
+}
+.action-state.done {
+  background: #0a2018;
+  color: #50e090;
+  border-color: #2a8050;
+}
+
+/* ===== LOG SECTION ===== */
+#log-section { border-top: 1px solid #131e38; }
+#log-toggle {
+  width: 100%;
+  background: #080d18;
+  color: #2a3858;
+  border: none;
+  padding: 5px 12px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+#log-toggle:hover { background: #0d1325; color: #4a5878; }
+#log-zone {
+  display: none;
+  background: #050810;
+  padding: 6px 12px;
+  height: 110px;
+  overflow-y: auto;
+  font-size: 0.71rem;
+  line-height: 1.65;
+}
+#log-zone p          { color: #6a7a8a; }
+#log-zone p.log-damage { color: #ff7f7f; }
+#log-zone p.log-heal   { color: #7fff7f; }
+#log-zone p.log-system { color: #ffd166; }
+#log-zone p.log-evolve { color: #c9a0ff; }
+#log-zone p.log-warn   { color: #ff9800; }
+
+/* ===== HAND SECTION ===== */
+#hand-section {
+  background: #060910;
+  padding: 7px 0 14px;
+  border-top: 1px solid #131e38;
+  flex: 1;
+}
+#hand-scroll-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+#hand-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  padding: 2px 6px;
+  flex: 1;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#hand-cards::-webkit-scrollbar { display: none; }
+.hand-arrow {
+  display: none;
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  z-index: 10;
+  background: rgba(20,30,60,0.85);
+  border: 1px solid #2a3860;
+  color: #6080c0;
+  font-size: 1.4rem;
+  line-height: 1;
+  width: 24px;
+  height: 48px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  transition: all 0.15s;
+}
+.hand-arrow:hover { background: rgba(30,50,100,0.95); color: #a0c0ff; }
+.hand-arrow.visible { display: flex; align-items: center; justify-content: center; }
+#hand-arrow-left  { left: 0; border-radius: 0 4px 4px 0; }
+#hand-arrow-right { right: 0; border-radius: 4px 0 0 4px; }
+.hand-card {
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  padding: 6px 4px 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 66px;
+  min-height: 84px;
+  text-align: center;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.hand-card:hover:not(.disabled) { transform: translateY(-5px); filter: brightness(1.25); }
+.hand-card.disabled { opacity: 0.3; cursor: not-allowed; }
+.hand-card.selected {
+  transform: translateY(-7px);
+  box-shadow: 0 0 12px 3px rgba(255,209,102,0.5);
+  border-color: #ffd166 !important;
+}
+.hand-card-icon { font-size: 1.35rem; line-height: 1; width: 100%; height: 44px; display: flex; align-items: center; justify-content: center; }
+.hand-card.hand-card-image { padding: 0; overflow: hidden; }
+.hand-card-name { font-size: 0.59rem; font-weight: bold; color: #ddd; line-height: 1.2; }
+.hand-card-desc { font-size: 0.53rem; color: #fff; line-height: 1.2; margin-top: 1px; }
+.no-cards { color: #2a3040; font-size: 0.8rem; }
+
+/* ===== DETAIL MODAL ===== */
+#detail-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 150;
+  justify-content: center;
+  align-items: center;
+}
+#detail-overlay.show { display: flex; }
+#detail-box {
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 14px;
+  padding: 20px;
+  max-width: 420px;
+  width: 92%;
+}
+#detail-box h3 { color: #ffd166; margin-bottom: 4px; font-size: 1rem; }
+.detail-category { font-size: 0.72rem; color: #888; margin-bottom: 12px; }
+.detail-cols { display: flex; gap: 10px; margin-bottom: 14px; }
+.detail-col {
+  flex: 1;
+  border: 2px solid #1a5276;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  position: relative;
+}
+.detail-col.current-state { border-color: #ffd166; background: #1a2e50; }
+.detail-col.evolved-col { border-color: #b47aff; }
+.detail-col.evolved-col.current-state { border-color: #b47aff; background: #1e1240; box-shadow: 0 0 10px 2px rgba(180,120,255,0.35); }
+.detail-col-label {
+  font-size: 0.65rem; color: #888; letter-spacing: 1px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  margin-bottom: 6px;
+}
+.detail-now-badge { display: inline-block; background: #ffd166; color: #000; border-radius: 4px; font-size: 0.58rem; font-weight: bold; padding: 1px 5px; }
+.detail-now-badge.evolved-now { background: #b47aff; color: #fff; }
+.detail-col-name { font-size: 0.9rem; font-weight: bold; color: #eee; margin-bottom: 4px; }
+.detail-col-stat { font-size: 0.78rem; margin: 2px 0; }
+.detail-hp-stat  { color: #7fff7f; }
+.detail-atk-stat { color: #ff9f7f; }
+.detail-hp-bar-wrap { background: #333; border-radius: 3px; height: 5px; margin: 5px 0 4px; overflow: hidden; }
+.detail-hp-bar { height: 5px; border-radius: 3px; }
+.detail-effect { background: #0a1a30; border-radius: 6px; padding: 8px 10px; font-size: 0.75rem; color: #c9a0ff; margin-bottom: 12px; text-align: left; }
+.detail-effect span { color: #888; font-size: 0.7rem; }
+.detail-close { background: #2c3e50; color: #ccc; border: 1px solid #555; border-radius: 6px; padding: 6px 18px; cursor: pointer; font-size: 0.82rem; display: block; margin: 0 auto; }
+
+/* ===== MODAL ===== */
+#modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 100; justify-content: center; align-items: center; overflow-y: auto; padding: 16px; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+#modal-overlay.show { display: flex; }
+#modal-box { background: #16213e; border: 2px solid #0f3460; border-radius: 12px; padding: 20px; max-width: 420px; width: 100%; margin: auto; box-sizing: border-box; flex-shrink: 0; }
+#modal-box h3 { color: #ffd166; margin-bottom: 12px; }
+.modal-options { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.modal-monster-btn { background: #0f3460; border: 2px solid #1a5276; border-radius: 8px; padding: 8px 14px; color: #eee; cursor: pointer; font-size: 0.82rem; transition: all 0.15s; }
+.modal-monster-btn:hover { background: #1a5276; border-color: #a0c4ff; }
+.modal-cancel { background: #333; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.8rem; }
+
+/* ===== SPLASH SCREEN ===== */
+#splash-screen {
+  position: fixed;
+  inset: 0;
+  background: #212121;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+#splash-logo {
+  max-height: 88vh;
+  max-width: 96vw;
+  width: auto;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+#splash-screen.logo-in  #splash-logo { opacity: 1; }
+#splash-screen.fade-out { animation: splash-out 0.6s ease-out forwards; }
+@keyframes splash-out {
+  from { opacity: 1; }
+  to   { opacity: 0; pointer-events: none; }
+}
+
+/* ===== START SCREEN ===== */
+#start-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  text-align: center;
+  padding: 20px 0;
+}
+#start-screen h2 { color: #ffd166; margin-bottom: 14px; font-size: 1.4rem; }
+#start-screen p { color: #aaa; font-size: 0.82rem; line-height: 1.8; margin-bottom: 12px; }
+.rules-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; margin-bottom: 12px; }
+.rules-table th { background: #0f3460; color: #a0c4ff; padding: 4px 6px; }
+.rules-table td { padding: 4px 6px; border-bottom: 1px solid #0f3460; color: #ccc; text-align: center; }
+
+/* ===== DECK SCREEN ===== */
+.deck-section { background:#0d1428; border:1px solid #1a2a50; border-radius:10px; padding:12px 14px; margin-bottom:14px; width:100%; max-width:480px; box-sizing:border-box; }
+.deck-section-header { display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#a0c4ff; font-weight:bold; margin-bottom:10px; }
+.deck-count-badge { font-size:0.8rem; padding:2px 8px; border-radius:10px; background:#1a2a50; }
+.deck-row { display:flex; align-items:center; padding:6px 0; border-bottom:1px solid #1a2a40; gap:6px; }
+.deck-row:last-child { border-bottom:none; }
+.deck-row-label { font-size:0.82rem; color:#ccc; flex:1; min-width:0; }
+.deck-row-controls { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.deck-adj-btn { background:#1a2a50; border:1px solid #2a4070; color:#a0c4ff; width:28px; height:28px; border-radius:6px; font-size:0.95rem; cursor:pointer; line-height:1; transition:background 0.15s; flex-shrink:0; }
+.deck-adj-btn:hover:not(:disabled) { background:#2a3a70; }
+.deck-adj-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.deck-row-count { font-size:1rem; color:#fff; font-weight:bold; width:20px; text-align:center; }
+.deck-row-limit { font-size:0.7rem; color:#446; width:22px; text-align:right; flex-shrink:0; }
+.btn-deck-back { background:#1a2030; border:1px solid #2a3050; color:#778; border-radius:8px; padding:10px 18px; cursor:pointer; font-size:0.9rem; white-space:nowrap; }
+.btn-deck-back:hover { background:#252a3a; }
+.btn-deck-start { background:linear-gradient(135deg,#4a0080,#8a20d0); border:1px solid #9a40e0; color:#f0d0ff; border-radius:8px; padding:10px 0; cursor:pointer; font-size:1rem; font-weight:bold; flex:1; transition:filter 0.15s; }
+.btn-deck-start:hover:not(:disabled) { filter:brightness(1.15); }
+.btn-deck-start:disabled { opacity:0.4; cursor:not-allowed; background:linear-gradient(135deg,#2a1040,#3a1060); }
+
+/* ===== FX OVERLAY ===== */
+#fx-overlay { position:fixed; inset:0; pointer-events:none; z-index:249; overflow:hidden; }
+@keyframes fx-ring       { 0%{transform:translate(-50%,-50%) scale(0);opacity:0.95} 100%{transform:translate(-50%,-50%) scale(4.5);opacity:0} }
+@keyframes fx-flash      { 0%{opacity:0} 20%{opacity:1} 100%{opacity:0} }
+@keyframes fx-slash      { 0%{transform:rotate(var(--r)) translateX(-120%);opacity:0} 20%{opacity:1} 100%{transform:rotate(var(--r)) translateX(120%);opacity:0} }
+@keyframes fx-zeus-dark  { 0%{opacity:0} 8%{opacity:1} 70%{opacity:0.95} 100%{opacity:0} }
+@keyframes fx-zeus-bolt  { 0%{opacity:0;transform:scaleY(0)} 15%{opacity:1;transform:scaleY(1)} 80%{opacity:0.6} 100%{opacity:0} }
+@keyframes fx-wave-rise  { 0%{transform:translateY(105%);opacity:0.9} 35%{transform:translateY(0%);opacity:1} 65%{transform:translateY(0%);opacity:0.9} 100%{transform:translateY(105%);opacity:0} }
+@keyframes fx-foam-pop   { 0%{transform:translateY(0) scaleX(1);opacity:1} 100%{transform:translateY(-30px) scaleX(1.3);opacity:0} }
+@keyframes fx-drop-fall  { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(50px)} }
+
+/* ===== CARD ATTACK FX ===== */
+@keyframes card-shake {
+  0%  {transform:translateX(0)   translateY(0)}
+  15% {transform:translateX(-9px) translateY(-4px)}
+  30% {transform:translateX(9px)  translateY(4px)}
+  45% {transform:translateX(-6px) translateY(-2px)}
+  60% {transform:translateX(6px)  translateY(2px)}
+  75% {transform:translateX(-3px) translateY(-1px)}
+  90% {transform:translateX(3px)  translateY(1px)}
+  100%{transform:translateX(0)   translateY(0)}
+}
+.card-shake { animation: card-shake 0.45s ease-out !important; z-index: 20; }
+@keyframes card-hit-pop {
+  0%  { opacity:0; transform:translate(-50%,-50%) scale(0.2); }
+  35% { opacity:1; transform:translate(-50%,-50%) scale(1.5); }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(1.1); }
+}
+.card-hit-fx {
+  position:absolute; top:50%; left:50%;
+  font-size:3rem; pointer-events:none; z-index:30;
+  animation: card-hit-pop 0.5s ease-out forwards;
+}
+
+/* ===== CPU ACTION POPUP ===== */
+#cpu-action-popup {
+  display: none;
+  position: fixed;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  z-index: 260;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s, transform 0.18s;
+  min-width: 200px;
+  max-width: 300px;
+  text-align: center;
+}
+#cpu-action-popup.show {
+  display: block;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#cpu-action-popup.hide {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
+}
+.cpu-popup-inner {
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  line-height: 1.5;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.cpu-popup-icon { font-size: 1.4rem; display: block; margin-bottom: 3px; }
+.cpu-popup-type-attack  { background: linear-gradient(135deg,#3a0808,#881818); border: 2px solid #cc3333; color: #ffbbbb; }
+.cpu-popup-type-ability { background: linear-gradient(135deg,#0a2858,#1a5aaa); border: 2px solid #4a9aee; color: #a0d0ff; }
+.cpu-popup-type-evolve  { background: linear-gradient(135deg,#2a0a5a,#6a1fbe); border: 2px solid #b47aff; color: #f0d0ff; }
+.cpu-popup-type-heal    { background: linear-gradient(135deg,#062006,#107838); border: 2px solid #28a848; color: #a0ffb0; }
+.cpu-popup-type-wave    { background: linear-gradient(135deg,#041828,#0a4878); border: 2px solid #28a8ee; color: #a0e8ff; }
+
+/* ===== EVOLVE TOAST ===== */
+#evolve-toast {
+  display: none;
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  background: linear-gradient(135deg,#2a0a5a,#6a1fbe);
+  border: 2px solid #b47aff;
+  border-radius: 14px;
+  padding: 18px 28px;
+  text-align: center;
+  z-index: 300;
+  box-shadow: 0 0 40px 8px rgba(160,80,255,0.5);
+  pointer-events: none;
+  transition: transform 0.2s, opacity 0.2s;
+  opacity: 0;
+}
+#evolve-toast.show {
+  display: block;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+#evolve-toast .toast-title { font-size: 1.3rem; font-weight: bold; color: #f0d0ff; margin-bottom: 2px; white-space: nowrap; }
+#evolve-toast .toast-evolve-label { font-size: 0.95rem; font-weight: bold; color: #f0d0ff; margin-bottom: 4px; }
+#evolve-toast .toast-sub   { font-size: 0.82rem; color: #c9a0ff; }
+#evolve-toast .toast-img   { width: 80px; height: 80px; object-fit: contain; margin: 8px auto 4px; display: block; }
+
+/* ===== TURN BANNER ===== */
+#turn-banner {
+  display: none;
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.7);
+  z-index: 280;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  opacity: 0;
+}
+#turn-banner.show {
+  display: block;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+#turn-banner.hide {
+  transform: translate(-50%, -50%) scale(1.1);
+  opacity: 0;
+}
+.turn-banner-inner {
+  padding: 14px 40px;
+  border-radius: 12px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+.turn-banner-inner.player-turn {
+  background: linear-gradient(135deg,#0a2858,#1a5aaa);
+  border: 2px solid #4a9aee;
+  color: #a0d0ff;
+  box-shadow: 0 0 30px 6px rgba(50,120,255,0.4);
+}
+.turn-banner-inner.cpu-turn {
+  background: linear-gradient(135deg,#3a0808,#881818);
+  border: 2px solid #cc3333;
+  color: #ffaaaa;
+  box-shadow: 0 0 30px 6px rgba(200,50,50,0.4);
+}
+.turn-banner-sub {
+  font-size: 0.78rem;
+  margin-top: 5px;
+  letter-spacing: 1px;
+  opacity: 0.75;
+}
+
+/* ===== GAME OVER ===== */
+#gameover-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 200; justify-content: center; align-items: center; }
+#gameover-overlay.show { display: flex; }
+#gameover-box { background: #16213e; border: 3px solid #ffd166; border-radius: 14px; padding: 30px 40px; text-align: center; }
+#gameover-box h2 { font-size: 2rem; margin-bottom: 10px; }
+#gameover-box p { color: #aaa; margin-bottom: 18px; }
+
+/* ===== MISC ===== */
+.btn-start { background: #a0522d; color: #fff; font-size: 1rem; padding: 10px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.15s; }
+.btn-start:hover { background: #c0642d; }
+.diff-btn { background: #1a2030; color: #667; border: 1px solid #2a3050; border-radius: 6px; padding: 6px 16px; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; }
+.diff-btn.active { background: #1e3060; color: #aac8ff; border-color: #4070cc; font-weight: bold; }
+.diff-btn:hover { border-color: #4070cc; color: #aac8ff; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ===== MOBILE LAYOUT ===== */
+@media (max-height: 820px) and (max-width: 480px) {
+  #game-container {
+    height: 100svh;
+    min-height: unset;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ヘッダー縮小 */
+  #battle-header { padding: 4px 10px; }
+  #turn-info { font-size: 0.75rem; }
+  #score-info { font-size: 0.68rem; }
+
+  /* フィールドエリア縮小 */
+  #enemy-area  { padding: 3px 8px 2px; }
+  #player-area { padding: 2px 8px 3px; }
+  .field-meta  { font-size: 0.6rem; margin-bottom: 3px; }
+
+  /* カードサイズ縮小 */
+  .main-battle-card { width: 138px; }
+  .sub-battle-card  { width: 90px; }
+  .main-battle-card .card-art { height: 110px; font-size: 3.8rem; }
+  .sub-battle-card  .card-art { height: 68px;  font-size: 2.3rem; }
+  .main-empty { width: 138px; height: 148px; }
+  .sub-empty  { width: 90px;  height: 100px; }
+  .next-indicator { width: 60px; font-size: 0.68rem; }
+  .next-indicator .next-art { font-size: 1.4rem; }
+  .main-battle-card .card-stats { font-size: 0.58rem; }
+  .sub-battle-card  .card-stats { font-size: 0.52rem; }
+
+  /* アクションセンター縮小 */
+  #action-center { padding: 4px 8px 3px; }
+  #phase-info { font-size: 0.6rem; margin-bottom: 3px; }
+  #action-zone { gap: 4px; margin-bottom: 3px; }
+  .battle-btn { width: 66px; padding: 5px 2px; font-size: 0.62rem; }
+  .btn-icon { font-size: 0.9rem; }
+  #btn-row2 { margin-bottom: 3px; }
+  #turn-states { gap: 4px; }
+  .action-state { font-size: 0.56rem; padding: 1px 8px; }
+
+  /* ログ：デフォルト閉じ＆縮小 */
+  #log-zone { height: 80px; font-size: 0.65rem; }
+  #log-toggle { padding: 3px 10px; font-size: 0.65rem; }
+
+  /* 手札エリア：残りを埋める・横スクロール */
+  #hand-section { padding: 4px 0 6px; flex: 1; overflow: hidden; }
+  #hand-cards { gap: 4px; flex-wrap: nowrap; justify-content: flex-start; padding: 2px 4px; }
+  .hand-card { width: 58px; min-height: 74px; padding: 4px 3px; flex-shrink: 0; }
+  .hand-card-icon { font-size: 1.15rem; }
+  .hand-card-name { font-size: 0.53rem; }
+  .hand-card-desc { font-size: 0.48rem; }
+
+  /* モンスター詳細モーダル */
+  #detail-box { padding: 14px 12px; width: 96%; }
+  #detail-box h3 { font-size: 0.88rem; }
+  .detail-category { font-size: 0.65rem; margin-bottom: 8px; }
+  .detail-cols { gap: 6px; margin-bottom: 10px; }
+  .detail-col { padding: 7px 6px; }
+  .detail-col-name { font-size: 0.78rem; }
+  .detail-col-stat { font-size: 0.68rem; }
+  .detail-col-label { font-size: 0.58rem; margin-bottom: 4px; }
+  .detail-effect { font-size: 0.68rem; padding: 6px 8px; margin-bottom: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Splash Screen -->
+<div id="splash-screen">
+  <img id="splash-logo" src="images/rogo taitoru.PNG" alt="EVANTIS">
+</div>
+
+<!-- Start Screen -->
+<div id="start-screen" style="display:none">
+  <img src="images/rogo.PNG" alt="EVANTIS" style="width:88%;max-width:380px;margin-bottom:28px;border-radius:10px">
+  <div style="display:flex;flex-direction:column;gap:12px;width:88%;max-width:320px">
+    <button class="btn-start" onclick="showDeckScreen()">デッキ確認・ゲーム開始</button>
+    <button class="btn-start" style="background:linear-gradient(135deg,#2a3a5c,#1a2a4c);border-color:#4a6fa5;" onclick="showRulesScreen()">ルール確認</button>
+  </div>
+</div>
+
+<!-- Rules Screen -->
+<div id="rules-screen" style="display:none;position:fixed;inset:0;background:#111;z-index:500;flex-direction:column">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:16px 10px 0">
+    <img id="rules-img" src="" alt="" style="max-height:100%;max-width:100%;object-fit:contain;border-radius:8px">
+  </div>
+  <div style="height:64px;display:flex;align-items:center;justify-content:center;gap:24px;flex-shrink:0">
+    <button id="rules-prev" class="btn-start" style="padding:10px 22px;font-size:0.9rem" onclick="rulesNav(-1)">◀ 戻る</button>
+    <span id="rules-page" style="color:#aaa;font-size:0.85rem;min-width:48px;text-align:center">1 / 5</span>
+    <button id="rules-next" class="btn-start" style="padding:10px 22px;font-size:0.9rem" onclick="rulesNav(1)">次へ ▶</button>
+  </div>
+</div>
+
+<!-- Deck Edit Screen -->
+<div id="deck-screen" style="display:none;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;padding:20px 16px;overflow-y:auto">
+  <h2 style="color:#ffd166;margin:12px 0 16px;font-size:1.2rem">🃏 デッキ編集</h2>
+
+  <!-- Monster Deck -->
+  <div class="deck-section">
+    <div class="deck-section-header">
+      ⚔️ キャラクターデッキ
+      <span id="monster-count-badge" class="deck-count-badge">5/5</span>
+    </div>
+    <div id="monster-deck-editor"></div>
+  </div>
+
+  <!-- Ability Deck -->
+  <div class="deck-section">
+    <div class="deck-section-header">
+      🃏 能力カードデッキ
+      <span id="ability-count-badge" class="deck-count-badge">20/20</span>
+    </div>
+    <div id="ability-deck-editor"></div>
+  </div>
+
+  <!-- Actions -->
+  <div style="display:flex;gap:8px;width:100%;max-width:480px;margin-top:4px;margin-bottom:24px;flex-wrap:wrap">
+    <button class="btn-deck-back" onclick="hideDeckScreen()">← 戻る</button>
+    <button class="btn-deck-start" id="btn-battle-start" onclick="openDiffDialog()">⚔️ CPU対戦</button>
+    <button class="btn-deck-start" id="btn-online-start" onclick="showOnlineLobbyFromDeck()"
+      style="background:linear-gradient(135deg,#083358,#1060a0);border-color:#2060c0;color:#a0c4ff">🌐 オンライン</button>
+  </div>
+</div>
+
+<!-- CPU Difficulty Dialog -->
+<div id="diff-dialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#16213e;border:2px solid #0f3460;border-radius:14px;padding:24px 20px;max-width:360px;width:90%;text-align:center">
+    <div style="color:#a0c4ff;font-size:0.85rem;margin-bottom:14px">CPU難易度を選んでください</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:14px">
+      <button class="diff-btn" id="diff-easy"   onclick="setDiff('easy')"  >😴 弱い</button>
+      <button class="diff-btn active" id="diff-normal" onclick="setDiff('normal')">⚔️ 普通</button>
+      <button class="diff-btn" id="diff-hard"   onclick="setDiff('hard')"  >💀 強い</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button onclick="closeDiffDialog()" style="background:#1a2030;border:1px solid #2a3050;color:#778;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:0.85rem">← 戻る</button>
+      <button onclick="startGameFromDeck()" class="btn-deck-start" style="flex:1;padding:10px 0;font-size:0.95rem">⚔️ 開始！</button>
+    </div>
+    <div style="border-top:1px solid #1a2a50;padding-top:12px">
+      <div style="color:#ffd000;font-size:0.75rem;margin-bottom:8px">⚠️ 超難関 — 神デッキへの挑戦</div>
+      <button onclick="startGodGame()" style="width:100%;background:linear-gradient(135deg,#3a1a00,#7a3800);border:1px solid #ffd000;color:#ffd166;border-radius:8px;padding:10px 0;cursor:pointer;font-size:0.95rem;font-weight:bold">⚡ 神デッキに挑む！</button>
+    </div>
+  </div>
+</div>
+
+<!-- Card Detail Overlay -->
+<div id="card-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:300;align-items:center;justify-content:center;padding:16px" onclick="closeCardDetail()">
+  <div id="card-detail-box" style="background:#16213e;border:2px solid #0f3460;border-radius:14px;padding:18px;max-width:320px;width:100%;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div id="card-detail-content"></div>
+    <button onclick="closeCardDetail()" style="margin-top:14px;width:100%;background:#1a2030;border:1px solid #2a3050;color:#aaa;border-radius:8px;padding:9px;cursor:pointer;font-size:0.9rem">閉じる</button>
+  </div>
+</div>
+
+<!-- Online Lobby -->
+<div id="online-lobby" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px 20px;text-align:center">
+  <h2 style="color:#a0c4ff;margin-bottom:20px">🌐 オンライン対戦</h2>
+  <p style="color:#667;font-size:0.85rem;margin-bottom:24px">同じコードを入力すると対戦できます</p>
+  <div style="margin-bottom:20px">
+    <div style="font-size:0.8rem;color:#556;margin-bottom:8px">部屋コード（4桁）</div>
+    <input id="room-code-input" maxlength="4" placeholder="0000"
+      style="font-size:1.4rem;width:120px;text-align:center;background:#0d1428;border:2px solid #2a4080;color:#a0c4ff;border-radius:8px;padding:8px 12px;letter-spacing:6px">
+  </div>
+  <button onclick="joinRoom()" style="background:linear-gradient(135deg,#083358,#1060a0);color:#a0c4ff;border:1px solid #2060c0;border-radius:8px;padding:10px 32px;font-size:1rem;cursor:pointer;margin-bottom:12px">入室する</button>
+  <div id="online-status" style="color:#667;font-size:0.85rem;min-height:24px;margin-bottom:20px"></div>
+  <button onclick="showStartScreen()" style="background:none;border:none;color:#445;font-size:0.8rem;cursor:pointer;text-decoration:underline">← 戻る</button>
+</div>
+
+<!-- Main Game UI -->
+<div id="game-container" style="display:none">
+
+  <!-- Battle Header -->
+  <div id="battle-header">
+    <div id="score-info">あなた 0 — 0 CPU</div>
+    <div id="turn-info">R1/25</div>
+    <div id="cpu-thinking">CPU考え中…</div>
+  </div>
+
+  <!-- Enemy Field -->
+  <div id="enemy-area">
+    <div class="field-meta">
+      <span id="cpu-destroyed-badge" class="destroy-counter">CPU 0/3</span>
+      <span>手札 <span id="cpu-hand-count">0</span>　デッキ <span id="cpu-deck-count">0</span></span>
+    </div>
+    <div class="battle-field" id="cpu-field"></div>
+  </div>
+
+  <!-- Action Center -->
+  <div id="action-center">
+    <div id="phase-info">準備中</div>
+    <div id="action-zone">
+      <button class="battle-btn evolve-btn" id="btn-evolve" disabled onclick="playerEvolve()">
+        <span class="btn-icon">⬆️</span>進化
+      </button>
+      <button class="battle-btn swap-btn" id="btn-swap" disabled onclick="playerSwap()">
+        <span class="btn-icon">🔄</span>交換
+      </button>
+      <button class="battle-btn use-btn" id="btn-use" style="display:none" disabled onclick="useSelectedCard()">
+        <span class="btn-icon">🃏</span>能力
+      </button>
+      <button class="battle-btn attack-btn" id="btn-attack" disabled onclick="playerAttack()">
+        <span class="btn-icon">⚔️</span>攻撃
+      </button>
+      <button class="battle-btn end-btn" id="btn-end" disabled onclick="playerEndTurn()">
+        <span class="btn-icon">✅</span>終了
+      </button>
+    </div>
+    <div id="btn-row2">
+      <button class="battle-btn dheal-btn" id="btn-dheal" style="display:none" onclick="playerDHeal()">
+        💧 D進化スキル
+      </button>
+      <button class="battle-btn cancel-btn" id="btn-cancel" style="display:none" onclick="cancelCardSelect()">✕</button>
+    </div>
+    <div id="turn-states">
+      <span class="action-state" id="state-evolve">進化</span>
+      <span class="action-state" id="state-ability">能力</span>
+      <span class="action-state" id="state-attack">攻撃</span>
+    </div>
+  </div>
+
+  <!-- Player Field -->
+  <div id="player-area">
+    <div class="battle-field" id="player-field"></div>
+    <div class="field-meta">
+      <span id="player-destroy-badge" class="destroy-counter">あなた 0/3</span>
+      <span style="color:#fff;font-size:0.65rem">
+        <span id="player-hand-count-label">手札 0</span>　<span id="player-deck-count-label">デッキ 20枚</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Battle Log (collapsible) -->
+  <div id="log-section">
+    <button id="log-toggle" onclick="toggleLog()">▼ バトルログ</button>
+    <div id="log-zone"></div>
+  </div>
+
+  <!-- Hand Cards -->
+  <div id="hand-section">
+    <div id="hand-scroll-wrapper">
+      <button id="hand-arrow-left"  class="hand-arrow" onclick="scrollHand(-1)">‹</button>
+      <div id="hand-cards"></div>
+      <button id="hand-arrow-right" class="hand-arrow" onclick="scrollHand(1)">›</button>
+    </div>
+    <div style="text-align:right;padding:4px 8px 2px">
+      <button id="btn-confirm-toggle" onclick="toggleConfirmActions()" style="font-size:0.68rem;padding:2px 10px;background:#1a2030;border:1px solid #2a3050;border-radius:10px;color:#666;cursor:pointer">✅ 確認ダイアログ ON</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h3 id="modal-title">選択</h3>
+    <div class="modal-options" id="modal-options"></div>
+    <button class="modal-cancel" id="modal-cancel-btn" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- Monster Detail Modal -->
+<div id="detail-overlay" onclick="closeDetailModal()">
+  <div id="detail-box" onclick="event.stopPropagation()">
+    <h3 id="detail-title"></h3>
+    <div class="detail-category" id="detail-category"></div>
+    <div class="detail-cols" id="detail-cols"></div>
+    <div class="detail-effect" id="detail-effect"></div>
+    <button class="detail-close" onclick="closeDetailModal()">閉じる</button>
+  </div>
+</div>
+
+<!-- FX Overlay -->
+<div id="fx-overlay"></div>
+
+<!-- CPU Action Popup -->
+<div id="cpu-action-popup">
+  <div class="cpu-popup-inner" id="cpu-popup-inner">
+    <span class="cpu-popup-icon" id="cpu-popup-icon"></span>
+    <span id="cpu-popup-text"></span>
+    <span id="cpu-popup-subtext" style="display:none;font-size:0.75rem;opacity:0.85;font-weight:normal;display:block;margin-top:2px"></span>
+  </div>
+</div>
+
+<!-- Turn Banner -->
+<div id="turn-banner"><div class="turn-banner-inner" id="turn-banner-inner"></div><div class="turn-banner-sub" id="turn-banner-sub"></div></div>
+
+<!-- Evolve Toast -->
+<div id="evolve-toast">
+  <div class="toast-title" id="evolve-toast-title">✨ 進化！</div>
+  <div class="toast-evolve-label" id="evolve-toast-label"></div>
+  <img class="toast-img" id="evolve-toast-img" src="" alt="">
+  <div class="toast-sub" id="evolve-toast-sub"></div>
+</div>
+
+<!-- Game Over -->
+<div id="gameover-overlay">
+  <div id="gameover-box">
+    <h2 id="gameover-title"></h2>
+    <p id="gameover-detail"></p>
+    <div id="pack-reward" style="display:none;margin:14px 0;padding:14px;background:linear-gradient(135deg,#201000,#502800);border:2px solid #ffd000;border-radius:10px">
+      <div style="font-size:1.5rem;margin-bottom:6px">🎁</div>
+      <div style="color:#ffd166;font-weight:bold;font-size:0.95rem;margin-bottom:4px">神デッキ撃破！</div>
+      <div style="color:#ffaa40;font-size:0.8rem">神パック解禁予定（今後実装）</div>
+    </div>
+    <button class="btn-start" onclick="location.reload()">もう一度プレイ</button>
+  </div>
+</div>
+
+<script>
+// ===================================================
+// BALANCE VARIABLES（調整用）
+// ===================================================
+const DIRECT_DAMAGE    = 15;
+const HEAL_MAIN_AMT    = 15;
+const HEAL_ALL_AMT     = 8;
+const EVOLVE_D_HEAL    = 20;
+const EVOLVE_E_REFLECT = 8;
+const ARES_BONUS  = 14;   // 軍神アレス 攻撃ボーナス
+const WAVE_DMG    = 12;   // 海神ポセイドン 波涛ダメージ/ターン
+const REGEN_AMT   = 12;   // 炉神ヘスティア 回復量/ターン
+// ===================================================
+// DATA DEFINITIONS
+// ===================================================
+const MONSTER_DEFS = [
+  { type: 'A', label: 'ハグルマ',   category: 'ロボット',   maxHP: 30, atk: 10 },
+  { type: 'B', label: 'ガイコツ',   category: 'モンスター', maxHP: 50, atk: 5  },
+  { type: 'C', label: 'パンチマン', category: 'ロボット',   maxHP: 20, atk: 15 },
+  { type: 'D', label: 'メガネハト', category: 'アニマル',   maxHP: 25, atk: 8  },
+  { type: 'E', label: 'スライム',   category: 'モンスター', maxHP: 35, atk: 8  },
+  // hidden: trueのカードはスターターデッキに入らない（将来のパック用）
+  { type: 'Z',  label: 'ゼウス',     category: '神', maxHP: 40, atk: 12, hidden: true }, // パック実装後に解禁
+  // 神デッキ専用（CPU専用・hidden）
+  { type: 'Ar', label: 'アレス',     category: '神', maxHP: 36, atk: 15, hidden: true },
+  { type: 'Po', label: 'ポセイドン', category: '神', maxHP: 59, atk: 12, hidden: true },
+  { type: 'At', label: 'アテナ',     category: '神', maxHP: 47, atk: 11, hidden: true },
+  { type: 'He', label: 'ヘスティア', category: '神', maxHP: 43, atk:  8, hidden: true },
+];
+
+const EVOLVE_DEFS = {
+  A: { maxHP: 45, atk: 15, evolvedLabel: 'ギアロボ',      effect: null,            effectDesc: '純粋強化' },
+  B: { maxHP: 65, atk: 10, evolvedLabel: 'ガイコツ騎士',  effect: 'endure',        effectDesc: 'HP0時1度耐える' },
+  C: { maxHP: 35, atk: 20, evolvedLabel: 'ギガパンチ',    effect: 'double_attack', effectDesc: '2回攻撃 or 能力カード（1回不可）' },
+  D: { maxHP: 40, atk: 13, evolvedLabel: '教授ハト',      effect: 'd_heal',        effectDesc: `任意回復${EVOLVE_D_HEAL}（1回）` },
+  E: { maxHP: 50, atk: 13, evolvedLabel: 'ビッグスライム', effect: 'reflect',      effectDesc: '攻撃を受けた時、相手の攻撃力の半分を反射する' },
+  // ゼウス専用（2ルート進化）
+  Z_lazy:     { maxHP: 70, atk: 18, evolvedLabel: '怠け者ゼウス', effect: 'zeus_lazy', effectDesc: '相手が2ポイント獲得で全能神ゼウスに超進化' },
+  Z_almighty: { maxHP: 90, atk: 28, evolvedLabel: '全能神ゼウス', effect: 'nullify',   effectDesc: 'メインにいる間、相手ターン開始時に行動を1つ無効化（毎ターン）' },
+  // 神デッキ専用
+  Ar: { maxHP: 51, atk: 20, evolvedLabel: '軍神アレス',     effect: 'ares_bonus', effectDesc: `攻撃時ATK+${ARES_BONUS}（毎回）` },
+  Po: { maxHP: 85, atk: 17, evolvedLabel: '海神ポセイドン', effect: 'wave',        effectDesc: `自ターン終了時に相手メインへ${WAVE_DMG}ダメージ` },
+  At: { maxHP: 67, atk: 16, evolvedLabel: '戦略の女神アテナ',   effect: 'xdraw',       effectDesc: 'メインにいる間、自ターン開始時に追加ドロー1枚' },
+  He: { maxHP: 65, atk: 11, evolvedLabel: '炉神ヘスティア', effect: 'regen',        effectDesc: `メインにいる間、自ターン開始時にHP+${REGEN_AMT}回復` },
+};
+
+const ABILITY_DEFS = {
+  swap_enemy:     { name: '強制入替',             desc: '相手のメイン⇔サブを強制入れ替え',           disabled: false },
+  direct_damage:  { name: '直接ダメージ',         desc: `相手メインに${DIRECT_DAMAGE}ダメージ`,       disabled: false },
+  extra_attack:   { name: '追加攻撃',            desc: 'このターンもう1回攻撃できる',                 disabled: false },
+  heal_main:      { name: 'メイン回復',           desc: `自分メインを${HEAL_MAIN_AMT}HP回復`,         disabled: false },
+  heal_all:       { name: '全体回復',            desc: `自分メイン・サブを各${HEAL_ALL_AMT}HP回復`,   disabled: false },
+  monster_select: { name: 'モンスター指定',       desc: '次に出るモンスターをデッキから指定',          disabled: false },
+  shuffle_enemy:  { name: '手札破壊',             desc: '相手の手札を1枚ランダムに捨てさせる',         disabled: false },
+  shield:         { name: 'シールド',             desc: '次に受ける攻撃ダメージを0にする',             disabled: false },
+  kaishuu:        { name: '回収',               desc: '自分の捨て札から1枚ランダムに手札へ戻す',      disabled: false },
+  fuuin:          { name: '封印',               desc: '相手の手札をランダムに3枚使用不可にする',      disabled: false },
+  fushi:          { name: '不死',               desc: '自分のメインが神カテゴリなら、このターン致死ダメージを1度だけ無効にする', disabled: false },
+};
+
+const ABILITY_COUNTS = {
+  swap_enemy: 3, direct_damage: 3, extra_attack: 2,
+  heal_main: 3, heal_all: 2, monster_select: 2, shuffle_enemy: 2, shield: 3,
+};
+
+// ===== VISUAL THEMES =====
+// カテゴリ別テーマ: ロボット=白, アニマル=茶, モンスター=紫
+const CATEGORY_THEME = {
+  'ロボット':   { border: '#cccccc', bg: 'linear-gradient(160deg,#1e2030 0%,#2e3248 100%)' },
+  'アニマル':   { border: '#c08848', bg: 'linear-gradient(160deg,#2a1a08 0%,#5a3010 100%)' },
+  'モンスター': { border: '#9050e0', bg: 'linear-gradient(160deg,#1a0830 0%,#3a1268 100%)' },
+  '神':         { border: '#ffd000', bg: 'linear-gradient(160deg,#201808 0%,#503800 100%)' },
+};
+
+const TYPE_THEMES = {
+  A: { emoji: '⚙️',  img: 'images/haguruma.jpg',   imgEvolved: 'images/giarobo.jpg',       bg: 'linear-gradient(160deg,#162038 0%,#1e4070 100%)', glow: '#4888cc' },
+  B: { emoji: '💀',  img: 'images/gaikotu.jpg',     imgEvolved: 'images/gaikotukisi.jpg',   bg: 'linear-gradient(160deg,#180a30 0%,#3a1268 100%)', glow: '#8850ff' },
+  C: { emoji: '👊',  img: 'images/panntiman.jpg',   imgEvolved: 'images/gigapannti.jpg',    bg: 'linear-gradient(160deg,#380808 0%,#821010 100%)', glow: '#ee3333' },
+  D: { emoji: '🕊️', img: 'images/meganehato.jpg',  imgEvolved: 'images/kyoujyuhato.jpg',   bg: 'linear-gradient(160deg,#081e30 0%,#0870a0 100%)', glow: '#28b0d8' },
+  E: { emoji: '💧',  img: 'images/suraimu.jpg',     imgEvolved: 'images/biggusuraimu.jpg',  bg: 'linear-gradient(160deg,#082018 0%,#107838 100%)', glow: '#28c868' },
+  // ゼウス
+  Z:  { emoji: '⚡', img: 'images/GOD/zeusu.jpg', imgEvolved: 'images/GOD/namakemono.jpg', imgEvolved2: 'images/GOD/zennousin.PNG', bg: 'linear-gradient(160deg,#302008 0%,#705800 100%)', glow: '#ffd000' },
+  // ヘラ
+  H:  { emoji: '👑', img: null, imgEvolved: null, bg: 'linear-gradient(160deg,#301020 0%,#702050 100%)', glow: '#ff60a0' },
+  // 神デッキ専用
+  Ar: { emoji: '⚔️', img: 'images/GOD/aresu.jpg',     imgEvolved: 'images/GOD/gunnsinn.jpg',         bg: 'linear-gradient(160deg,#2a0808 0%,#6a1818 100%)', glow: '#ff4040' },
+  Po: { emoji: '🌊', img: 'images/GOD/poseidonn.jpg',  imgEvolved: 'images/GOD/kaijinn.jpg',          bg: 'linear-gradient(160deg,#082030 0%,#104870 100%)', glow: '#00a8ff' },
+  At: { emoji: '🦉', img: 'images/GOD/atena.jpg',      imgEvolved: 'images/GOD/sennyakunomegami.jpg', bg: 'linear-gradient(160deg,#101828 0%,#283870 100%)', glow: '#8090ff' },
+  He: { emoji: '🔥', img: 'images/GOD/hesuthia.jpg',   imgEvolved: 'images/GOD/rosinn.jpg',           bg: 'linear-gradient(160deg,#301808 0%,#704020 100%)', glow: '#ff8040' },
+};
+
+const CARD_THEMES = {
+  direct_damage:  { icon: '💥', img: 'images/abilities/tyokusetudame-ji.jpg', bg: 'linear-gradient(150deg,#2a0606,#6a1010)', border: '#aa2020', desc: `${DIRECT_DAMAGE}ダメージ` },
+  heal_main:      { icon: '💚', img: 'images/abilities/meinnkaihuku.jpg',     bg: 'linear-gradient(150deg,#062006,#106828)', border: '#28a848', desc: `+${HEAL_MAIN_AMT}HP回復` },
+  heal_all:       { icon: '🌿', img: 'images/abilities/zenntaikaihuku.PNG',   bg: 'linear-gradient(150deg,#062006,#0e5820)', border: '#209038', desc: `全体+${HEAL_ALL_AMT}` },
+  extra_attack:   { icon: '⚔️', img: 'images/abilities/tuikakougeki.jpg',     bg: 'linear-gradient(150deg,#281200,#6a3200)', border: '#b85020', desc: '+1回攻撃' },
+  swap_enemy:     { icon: '↔️', img: 'images/abilities/kyouseiirekae.jpg',     bg: 'linear-gradient(150deg,#080820,#201870)', border: '#5040b0', desc: '強制入替' },
+  monster_select: { icon: '🎯', img: 'images/abilities/monnsuta-sitei.jpg',    bg: 'linear-gradient(150deg,#181000,#483000)', border: '#a07020', desc: '次を指定' },
+  shuffle_enemy:  { icon: '🗑️', img: 'images/abilities/tehudahakai.jpg',       bg: 'linear-gradient(150deg,#0e0e18,#1e1e38)', border: '#3838a0', desc: '手札破壊' },
+  shield:         { icon: '🛡️', img: 'images/abilities/si-rudo.jpg',           bg: 'linear-gradient(150deg,#101830,#203860)', border: '#4080cc', desc: '次攻撃を無効' },
+  kaishuu:        { icon: '♻️', img: 'images/abilities/kaisyuu.jpg',           bg: 'linear-gradient(150deg,#0a2010,#185030)', border: '#40a060', desc: '捨て札から1枚' },
+  fuuin:          { icon: '🔒', img: 'images/abilities/huuinn.jpg',             bg: 'linear-gradient(150deg,#200a30,#501870)', border: '#9040c0', desc: '相手3枚封印' },
+  fushi:          { icon: '✨', img: 'images/abilities/husi.jpg',               bg: 'linear-gradient(150deg,#202800,#506000)', border: '#c0d000', desc: '致死無効（神専用）' },
+};
+
+// ===================================================
+// UTILITY
+// ===================================================
+function shuffle(arr) {
+  const a = [...arr];
+  const rand = rng ? () => rng.next() : Math.random;
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function buildAbilityDeck() {
+  const deck = [];
+  for (const [id, count] of Object.entries(ABILITY_COUNTS)) {
+    for (let i = 0; i < count; i++) deck.push(id);
+  }
+  return shuffle(deck);
+}
+
+function createMonster(def) {
+  return {
+    type: def.type,
+    label: def.label,
+    category: def.category || '',
+    hp: def.maxHP,
+    maxHP: def.maxHP,
+    atk: def.atk,
+    evolved: false,
+    evolveEffect: null,
+    endureAvailable: false,
+    dHealAvailable: false,
+  };
+}
+
+// ===================================================
+// EVOLUTION
+// ===================================================
+function evolveMonster(monster, key) {
+  if (!monster || monster.evolved) return false;
+  // keyが指定されない場合は通常進化（ゼウス以外）
+  const evKey = key || monster.type;
+  const ev = EVOLVE_DEFS[evKey];
+  if (!ev) return false;
+  const hpGain = ev.maxHP - monster.maxHP;
+  monster.maxHP = ev.maxHP;
+  monster.hp = clamp(monster.hp + hpGain, 1, ev.maxHP);
+  monster.atk = ev.atk;
+  monster.evolved = true;
+  monster.evolveEffect = ev.effect;
+  monster.evolveKey = evKey;          // どのルートで進化したか記録
+  monster.endureAvailable = ev.effect === 'endure';
+  monster.dHealAvailable  = ev.effect === 'd_heal';
+  monster.label = ev.evolvedLabel;
+  return true;
+}
+
+// 全能神ゼウスがmainにいるかチェック
+function hasAlmightyZeusMain(who) {
+  return G[who]?.main?.evolveEffect === 'nullify';
+}
+
+// 全能神の進化条件チェック（自分のモンスターが2体破壊された = 相手の破壊数が2以上）
+// ※ destroyedCountは「倒した側」に加算される設計なので、相手(opp)の破壊数で判定
+function canEvolveAlmighty(who) {
+  const opp = who === 'player' ? 'cpu' : 'player';
+  return G[opp].destroyedCount >= 2;
+}
+
+// ===================================================
+// GAME STATE
+// ===================================================
+let G = null;
+let selectedCardIdx = null;
+let cpuDifficulty = 'normal';
+let cpuMode = 'normal'; // 'normal' | 'god'
+let confirmActionsEnabled = true;
+
+// ===== SEEDED RNG =====
+class RNG {
+  constructor(seed) { this.s = (seed >>> 0) || 1; }
+  next() {
+    this.s ^= this.s << 13;
+    this.s ^= this.s >> 17;
+    this.s ^= this.s << 5;
+    return (this.s >>> 0) / 4294967296;
+  }
+}
+let rng = null;
+
+// ===== ONLINE STATE =====
+let ws = null;
+let myRole = null; // 'player1' | 'player2'
+let pendingOnlineSeed   = null; // game_start受信後、相手デッキ待ち中のseed
+let pendingOpponentDeck = null; // my_deck受信済みで game_start 待ち中の相手デッキ
+
+function setDiff(d) {
+  cpuDifficulty = d;
+  ['easy','normal','hard'].forEach(x => {
+    document.getElementById('diff-'+x).classList.toggle('active', x === d);
+  });
+}
+
+function toggleConfirmActions() {
+  confirmActionsEnabled = !confirmActionsEnabled;
+  const btn = document.getElementById('btn-confirm-toggle');
+  if (btn) btn.textContent = confirmActionsEnabled ? '✅ 確認ダイアログ ON' : '☐ 確認ダイアログ OFF';
+}
+
+function updateHandArrows() {
+  const el = document.getElementById('hand-cards');
+  const arrowL = document.getElementById('hand-arrow-left');
+  const arrowR = document.getElementById('hand-arrow-right');
+  if (!el || !arrowL || !arrowR) return;
+  const hasOverflow = el.scrollWidth > el.clientWidth + 2;
+  arrowL.classList.toggle('visible', hasOverflow && el.scrollLeft > 4);
+  arrowR.classList.toggle('visible', hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+}
+
+function scrollHand(dir) {
+  const el = document.getElementById('hand-cards');
+  if (!el) return;
+  el.scrollBy({ left: dir * 140, behavior: 'smooth' });
+  setTimeout(updateHandArrows, 320);
+}
+
+// 手札スクロールイベント登録（game-container表示後に1度だけ）
+function initHandScroll() {
+  const el = document.getElementById('hand-cards');
+  if (!el) return;
+  el.addEventListener('scroll', updateHandArrows, { passive: true });
+}
+
+// ===================================================
+// ONLINE LOBBY
+// ===================================================
+function showOnlineLobby() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('online-lobby').style.display = 'flex';
+}
+
+function showStartScreen() {
+  document.getElementById('online-lobby').style.display = 'none';
+  document.getElementById('deck-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'flex';
+  if (ws) { ws.close(); ws = null; }
+  setOnlineStatus('');
+}
+
+function setOnlineStatus(msg) {
+  const el = document.getElementById('online-status');
+  if (el) el.textContent = msg;
+}
+
+function joinRoom() {
+  const code = (document.getElementById('room-code-input').value.trim() || '0000').padStart(4, '0');
+  setOnlineStatus('接続中...');
+  if (ws) ws.close();
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ room: code }));
+  };
+  ws.onmessage = (e) => handleWsMessage(JSON.parse(e.data));
+  ws.onerror   = () => setOnlineStatus('❌ 接続エラー。サーバーが起動しているか確認してください。');
+  ws.onclose   = () => {
+    if (G && !G.gameOver) addLog('⚠️ 切断されました', 'log-warn');
+  };
+}
+
+function handleWsMessage(data) {
+  switch (data.type) {
+    case 'joined':
+      myRole = data.role;
+      setOnlineStatus(myRole === 'player1' ? '✅ 接続完了！相手を待っています...' : '✅ 接続完了！ゲームを開始します...');
+      break;
+    case 'game_start':
+      // デッキ情報を相手に送信し、相手のデッキ受信後にゲーム開始
+      pendingOnlineSeed = data.seed;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'my_deck',
+          monster_types:   loadMonsterDeck(),
+          ability_counts:  loadAbilityDeck(),
+        }));
+      }
+      if (pendingOpponentDeck !== null) {
+        // my_deck が先に届いていた場合
+        startOnlineGame(pendingOnlineSeed, pendingOpponentDeck);
+        pendingOnlineSeed   = null;
+        pendingOpponentDeck = null;
+      }
+      break;
+    case 'my_deck':
+      // 相手のデッキ情報を受信
+      pendingOpponentDeck = { monster_types: data.monster_types, ability_counts: data.ability_counts };
+      if (pendingOnlineSeed !== null) {
+        startOnlineGame(pendingOnlineSeed, pendingOpponentDeck);
+        pendingOnlineSeed   = null;
+        pendingOpponentDeck = null;
+      }
+      break;
+    case 'action':
+      applyOpponentAction(data);
+      break;
+    case 'error':
+      setOnlineStatus('❌ ' + data.msg);
+      break;
+    case 'opponent_left':
+      if (G && !G.gameOver) {
+        addLog('⚠️ 相手が切断しました', 'log-warn');
+        G.gameOver = true;
+        render();
+      }
+      break;
+  }
+}
+
+function sendOnlineAction(data) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'action', ...data }));
+  }
+}
+
+// ===================================================
+// ONLINE GAME START
+// ===================================================
+// oppDecks = { monster_types: string[], ability_counts: object }
+function startOnlineGame(seed, oppDecks) {
+  rng = new RNG(seed);
+
+  const myDecks = { monster_types: loadMonsterDeck(), ability_counts: loadAbilityDeck() };
+
+  // 両クライアントで同一の順番（player1→player2）で処理し、RNG消費を一致させる
+  const p1Decks = myRole === 'player1' ? myDecks  : oppDecks;
+  const p2Decks = myRole === 'player1' ? oppDecks : myDecks;
+
+  const buildMDeck = (types) =>
+    shuffle(types.map(t => MONSTER_DEFS.find(m => m.type === t) || MONSTER_DEFS[0]));
+  const buildADeck = (counts) => {
+    const deck = [];
+    for (const [id, cnt] of Object.entries(counts)) {
+      for (let i = 0; i < cnt; i++) deck.push(id);
+    }
+    return shuffle(deck);
+  };
+
+  const deck1 = buildMDeck(p1Decks.monster_types);  // player1のモンスターデッキ
+  const deck2 = buildMDeck(p2Decks.monster_types);  // player2のモンスターデッキ
+  const ab1   = buildADeck(p1Decks.ability_counts); // player1の能力デッキ
+  const ab2   = buildADeck(p2Decks.ability_counts); // player2の能力デッキ
+
+  // 自分視点: playerが自分、cpuが相手
+  const pDeck = myRole === 'player1' ? deck1 : deck2;
+  const cDeck = myRole === 'player1' ? deck2 : deck1;
+  const pAb   = myRole === 'player1' ? ab1   : ab2;
+  const cAb   = myRole === 'player1' ? ab2   : ab1;
+
+  // player1が先攻
+  const player1First = true;
+  const iGoFirst = (myRole === 'player1') === player1First;
+
+  G = {
+    turn: 1, maxTurns: 25,
+    mode: 'online',
+    myTurn: iGoFirst,
+    activePlayer: iGoFirst ? 'player' : 'cpu',
+    phase: 'ability',
+    extraAttack: false, hasAttacked: false,
+    attacksThisTurn: 0, maxAttacksThisTurn: 1,
+    abilityUsed: false, evolvedThisTurn: false,
+    swappedThisTurn: false, attackBlocked: false,
+    nullifyChosen: null,   // 全能神ゼウスが今ターン無効化する行動
+    gameOver: false, winner: null,
+    player: {
+      main: createMonster(pDeck[0]), sub: createMonster(pDeck[1]),
+      monsterDeck: pDeck.slice(2).map(createMonster),
+      abilityDeck: pAb, hand: [],
+      destroyedCount: 0, evolvedTotal: 0, shielded: false,
+    },
+    cpu: {
+      main: createMonster(cDeck[0]), sub: createMonster(cDeck[1]),
+      monsterDeck: cDeck.slice(2).map(createMonster),
+      abilityDeck: cAb, hand: [],
+      destroyedCount: 0, evolvedTotal: 0, shielded: false,
+    },
+  };
+
+  const firstHand  = iGoFirst ? 3 : 4;
+  const secondHand = iGoFirst ? 4 : 3;
+  for (let i = 0; i < firstHand;  i++) drawAbility('player');
+  for (let i = 0; i < secondHand; i++) drawAbility('cpu');
+
+  document.getElementById('online-lobby').style.display = 'none';
+  const gc = document.getElementById('game-container');
+  gc.style.display = 'flex';
+  gc.style.flexDirection = 'column';
+  initHandScroll();
+
+  const vsLabel = myRole === 'player1' ? 'あなたが先攻！' : 'CPUが先攻。あなたは後攻。';
+  addLog(`🌐 オンライン対戦開始！${vsLabel}`, 'log-system');
+
+  if (iGoFirst) {
+    drawAbilityAtTurnStart('player');
+    render();
+    setTimeout(() => showTurnBanner('player', '先攻'), 300);
+  } else {
+    drawAbilityAtTurnStart('cpu');
+    render();
+    setTimeout(() => showTurnBanner('cpu', '先攻'), 300);
+  }
+}
+
+// ===================================================
+// APPLY OPPONENT ACTION (online mode)
+// ===================================================
+function applyOpponentAction(data) {
+  if (!G || G.gameOver) return;
+
+  switch (data.action) {
+    case 'attack': {
+      showActionBanner('⚔️ 相手が攻撃！', '#ff6060');
+      doAttack('cpu');
+      G.attacksThisTurn++;
+      render();
+      if (!G.gameOver) showAttackFX('player');
+      break;
+    }
+    case 'evolve': {
+      const m = G.cpu.sub;
+      if (m && !m.evolved) {
+        const evKey = data.evolveKey || m.type;
+        evolveMonster(m, evKey);
+        G.evolvedThisTurn = true;
+        G.attackBlocked = true;
+        G.cpu.evolvedTotal++;
+        showActionBanner(`✨ 相手が進化！`, '#c9a0ff');
+        addLog(`✨ 相手の${m.label}（サブ）が進化！HP:${m.hp}/${m.maxHP}　ATK:${m.atk}`, 'log-evolve');
+        addLog(`  → ${EVOLVE_DEFS[evKey]?.effectDesc || ''}（このターン攻撃不可）`, 'log-evolve');
+        showFX('evolve');
+      }
+      render();
+      break;
+    }
+    case 'swap': {
+      if (G.cpu.sub) {
+        [G.cpu.main, G.cpu.sub] = [G.cpu.sub, G.cpu.main];
+        G.swappedThisTurn = true;
+        G.attackBlocked = true;
+        showActionBanner('🔄 相手が交換！', '#80c8ff');
+        addLog(`🔄 相手がメイン⇔サブを交換（このターン攻撃不可）`, 'log-system');
+      }
+      render();
+      break;
+    }
+    case 'use_card': {
+      const cardDef = ABILITY_DEFS[data.cardId];
+      if (cardDef) showActionBanner(`🃏 ${cardDef.name}`, '#ffd166');
+      applyOpponentCard(data);
+      render();
+      break;
+    }
+    case 'd_heal': {
+      const slot = data.slot;
+      const m = slot === 'main' ? G.cpu.main : G.cpu.sub;
+      if (m) {
+        const before = m.hp;
+        m.hp = clamp(m.hp + EVOLVE_D_HEAL, 0, m.maxHP);
+        if (G.cpu.main?.evolveEffect === 'd_heal') G.cpu.main.dHealAvailable = false;
+        if (G.cpu.sub?.evolveEffect  === 'd_heal') G.cpu.sub.dHealAvailable  = false;
+        showActionBanner('💧 相手がD回復！', '#70d0ff');
+        addLog(`💧 相手のD進化スキル：${m.label}を+${m.hp - before}回復！`, 'log-heal');
+      }
+      render();
+      break;
+    }
+    case 'end_turn': {
+      drawAbility('cpu');
+      G.hasAttacked = false; G.abilityUsed = false; G.extraAttack = false;
+      G.attacksThisTurn = 0; G.maxAttacksThisTurn = 1;
+      G.evolvedThisTurn = false; G.swappedThisTurn = false; G.attackBlocked = false;
+      G.nullifyChosen = null;
+      G.turn++;
+      G.myTurn = true;
+      G.activePlayer = 'player';
+      G.phase = 'ability';
+      const round = Math.ceil(G.turn / 2);
+      if (round > G.maxTurns) {
+        const ps = G.player.destroyedCount, cs = G.cpu.destroyedCount;
+        if (ps > cs) endGame('player', `25ターン終了（破壊数: あなた${ps} / 相手${cs}）`);
+        else if (cs > ps) endGame('cpu', `25ターン終了（破壊数: あなた${ps} / 相手${cs}）`);
+        else endGame(null, `25ターン終了（引き分け！）`);
+        return;
+      }
+      addLog(`--- あなたのターン (R${round}) ---`, 'log-system');
+      drawAbilityAtTurnStart('player');
+      render();
+      showTurnBanner('player', `ラウンド ${round}`);
+      break;
+    }
+  }
+}
+
+function applyOpponentCard(data) {
+  const cardId = data.cardId;
+  const def = ABILITY_DEFS[cardId];
+  const me = '相手', them = 'あなたの';
+  showFX('ability');
+
+  // 相手手札から除去（同期）
+  const cIdx = G.cpu.hand.indexOf(cardId);
+  if (cIdx >= 0) G.cpu.hand.splice(cIdx, 1);
+
+  G.abilityUsed = true;
+
+  switch (cardId) {
+    case 'direct_damage':
+      if (G.player.shielded) {
+        G.player.shielded = false;
+        addLog(`🛡️ あなたのシールド発動！「${def.name}」を無効化！`, 'log-evolve');
+      } else {
+        G.player.main.hp = clamp(G.player.main.hp - DIRECT_DAMAGE, 0, G.player.main.maxHP);
+        addLog(`${me}が「${def.name}」：あなたのメインに${DIRECT_DAMAGE}ダメージ！`, 'log-damage');
+        checkMonsterDestroyed('player', 'cpu');
+      }
+      break;
+    case 'heal_main': {
+      const h = clamp(HEAL_MAIN_AMT, 0, G.cpu.main.maxHP - G.cpu.main.hp);
+      G.cpu.main.hp = clamp(G.cpu.main.hp + HEAL_MAIN_AMT, 0, G.cpu.main.maxHP);
+      addLog(`${me}が「${def.name}」：${G.cpu.main.label}を+${h}回復！`, 'log-heal');
+      break;
+    }
+    case 'heal_all': {
+      [G.cpu.main, G.cpu.sub].filter(Boolean).forEach(m => {
+        const h = clamp(HEAL_ALL_AMT, 0, m.maxHP - m.hp);
+        m.hp = clamp(m.hp + HEAL_ALL_AMT, 0, m.maxHP);
+      });
+      addLog(`${me}が「${def.name}」：相手チームを各${HEAL_ALL_AMT}HP回復！`, 'log-heal');
+      break;
+    }
+    case 'extra_attack':
+      G.maxAttacksThisTurn = 2;
+      addLog(`${me}が「${def.name}」！追加攻撃可能！`, 'log-system');
+      break;
+    case 'swap_enemy':
+      if (G.player.sub) {
+        [G.player.main, G.player.sub] = [G.player.sub, G.player.main];
+        addLog(`↔️ ${me}が「${def.name}」：あなたのメイン⇔サブを強制交換！`, 'log-system');
+      }
+      break;
+    case 'monster_select':
+      if (data.selectedType && G.cpu.monsterDeck.length > 0) {
+        const idx = G.cpu.monsterDeck.findIndex(m => m.type === data.selectedType);
+        if (idx > 0) {
+          const [sel] = G.cpu.monsterDeck.splice(idx, 1);
+          G.cpu.monsterDeck.unshift(sel);
+        }
+        addLog(`${me}が「${def.name}」：次のモンスターを指定！`, 'log-system');
+      }
+      break;
+    case 'shuffle_enemy':
+      if (data.discardedIdx !== undefined && G.player.hand.length > data.discardedIdx) {
+        const discarded = G.player.hand.splice(data.discardedIdx, 1)[0];
+        const name = ABILITY_DEFS[discarded]?.name || discarded;
+        addLog(`${me}が「${def.name}」：あなたの手札「${name}」を捨てさせた！`, 'log-damage');
+      } else if (G.player.hand.length === 0) {
+        addLog(`${me}が「${def.name}」：あなたの手札が空で効果なし`, '');
+      }
+      break;
+    case 'shield':
+      G.cpu.shielded = true;
+      addLog(`🛡️ ${me}が「${def.name}」：シールド発動！`, 'log-evolve');
+      break;
+  }
+}
+
+// ===================================================
+// DECK MANAGEMENT (localStorage)
+// ===================================================
+const LS_MONSTER_KEY  = 'cgp_monster_deck';
+const LS_ABILITY_KEY  = 'cgp_ability_deck';
+const MONSTER_MAX_COPY  = 1;
+const MONSTER_DECK_SIZE = 5;
+const ABILITY_MAX_COPY  = 3;
+const ABILITY_DECK_SIZE = 20;
+const DEFAULT_MONSTER_DECK = ['A','B','C','D','E'];
+const DEFAULT_ABILITY_DECK = {
+  swap_enemy:3, direct_damage:3, extra_attack:2,
+  heal_main:3, heal_all:2, monster_select:2, shuffle_enemy:2, shield:3,
+};
+const GOD_ABILITY_DECK = {
+  swap_enemy:2, direct_damage:3, extra_attack:3,
+  heal_main:3, heal_all:2, shuffle_enemy:2, shield:2,
+  kaishuu:1, fushi:2,
+};
+
+function loadMonsterDeck() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_MONSTER_KEY));
+    if (Array.isArray(saved)) {
+      const validTypes = MONSTER_DEFS.filter(m => !m.hidden).map(m => m.type);
+      if (saved.every(t => validTypes.includes(t))) return saved;
+    }
+  } catch(e) {}
+  return [...DEFAULT_MONSTER_DECK];
+}
+function saveMonsterDeck(deck) { localStorage.setItem(LS_MONSTER_KEY, JSON.stringify(deck)); }
+
+function loadAbilityDeck() {
+  const validKeys = new Set(Object.keys(ABILITY_COUNTS));
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_ABILITY_KEY));
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+      // 無効キー（削除・非表示カード）を除外
+      const cleaned = {};
+      for (const [k, v] of Object.entries(saved)) {
+        if (validKeys.has(k)) cleaned[k] = v;
+      }
+      return cleaned;
+    }
+  } catch(e) {}
+  return {...DEFAULT_ABILITY_DECK};
+}
+function saveAbilityDeck(counts) { localStorage.setItem(LS_ABILITY_KEY, JSON.stringify(counts)); }
+
+function showDeckScreen() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('deck-screen').style.display = 'flex';
+  renderDeckScreen();
+}
+function hideDeckScreen() {
+  document.getElementById('deck-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'flex';
+}
+function startGameFromDeck() {
+  cpuMode = 'normal';
+  document.getElementById('deck-screen').style.display = 'none';
+  document.getElementById('diff-dialog').style.display = 'none';
+  startGame();
+}
+function startGodGame() {
+  cpuMode = 'god';
+  cpuDifficulty = 'hard';
+  document.getElementById('deck-screen').style.display = 'none';
+  document.getElementById('diff-dialog').style.display = 'none';
+  startGame();
+}
+function showOnlineLobbyFromDeck() {
+  document.getElementById('deck-screen').style.display = 'none';
+  showOnlineLobby();
+}
+function openDiffDialog() {
+  document.getElementById('diff-dialog').style.display = 'flex';
+}
+function closeDiffDialog() {
+  document.getElementById('diff-dialog').style.display = 'none';
+}
+
+function closeCardDetail() {
+  document.getElementById('card-detail-overlay').style.display = 'none';
+}
+
+function showDeckMonsterDetail(type) {
+  const m   = MONSTER_DEFS.find(m => m.type === type);
+  const th  = TYPE_THEMES[type] || {};
+  const glow = th.glow || '#0f3460';
+
+  // 基本情報ブロック
+  const imgHtml = th.img
+    ? `<img src="${th.img}" style="width:100%;max-width:200px;height:auto;object-fit:contain;border-radius:10px;margin-bottom:8px;border:2px solid ${glow};display:block;margin-left:auto;margin-right:auto">`
+    : `<div style="font-size:3.5rem;margin-bottom:8px">${th.emoji||'🃏'}</div>`;
+
+  let html = `
+    <div style="background:${th.bg||'#1a2030'};border-radius:10px;padding:14px;margin-bottom:12px;text-align:center">
+      ${imgHtml}
+      <div style="font-size:1.1rem;font-weight:bold;color:#ffd166">${m.label}</div>
+      <div style="font-size:0.72rem;color:#888;margin-bottom:8px">${m.category}</div>
+      <div style="display:flex;gap:16px;justify-content:center;font-size:0.88rem">
+        <span>❤️ <strong>${m.maxHP}</strong> HP</span>
+        <span>⚔️ <strong>${m.atk}</strong> ATK</span>
+      </div>
+    </div>`;
+
+  // 進化情報
+  if (type === 'Z') {
+    const lazy     = EVOLVE_DEFS.Z_lazy;
+    const almighty = EVOLVE_DEFS.Z_almighty;
+    html += `<div style="font-size:0.78rem;color:#a0c4ff;margin-bottom:6px;text-align:left">⬆️ 進化先（2ルート）</div>`;
+    html += `
+      <div onclick="showEvoDetail('Z','Z_lazy')" style="background:#0d1428;border-radius:8px;padding:10px;margin-bottom:6px;text-align:left;cursor:pointer;border:1px solid #1a2a40">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="color:#ffd166;font-size:0.88rem;font-weight:bold">${lazy.evolvedLabel}</div>
+          <span style="color:#446;font-size:0.7rem">▶</span>
+        </div>
+        <div style="color:#ccc;font-size:0.8rem;margin:2px 0">❤️ ${lazy.maxHP}HP　⚔️ ${lazy.atk}ATK</div>
+        <div style="color:#888;font-size:0.75rem">${lazy.effectDesc}</div>
+      </div>
+      <div onclick="showEvoDetail('Z','Z_almighty')" style="background:#0d1428;border-radius:8px;padding:10px;text-align:left;cursor:pointer;border:1px solid #1a2a40">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="color:#ffd166;font-size:0.88rem;font-weight:bold">${almighty.evolvedLabel}</div>
+          <span style="color:#446;font-size:0.7rem">▶</span>
+        </div>
+        <div style="color:#ccc;font-size:0.8rem;margin:2px 0">❤️ ${almighty.maxHP}HP　⚔️ ${almighty.atk}ATK</div>
+        <div style="color:#888;font-size:0.75rem">${almighty.effectDesc}</div>
+        <div style="color:#f98;font-size:0.72rem;margin-top:4px">条件: 自分のモンスターが2体破壊された時</div>
+      </div>`;
+  } else {
+    const evo = EVOLVE_DEFS[type];
+    if (evo) {
+      const evoImgHtml = th.imgEvolved
+        ? `<img src="${th.imgEvolved}" style="width:56px;height:56px;object-fit:contain;border-radius:6px;flex-shrink:0;border:1px solid ${glow}">`
+        : `<div style="font-size:2.2rem;flex-shrink:0">${th.emoji||''}</div>`;
+      html += `
+        <div style="font-size:0.78rem;color:#a0c4ff;margin-bottom:6px;text-align:left">⬆️ 進化後</div>
+        <div onclick="showEvoDetail('${type}','${type}')" style="background:#0d1428;border-radius:8px;padding:10px;display:flex;gap:12px;align-items:center;cursor:pointer;border:1px solid #1a2a40">
+          ${evoImgHtml}
+          <div style="text-align:left;min-width:0;flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="color:#c9a0ff;font-size:0.9rem;font-weight:bold">${evo.evolvedLabel}</div>
+              <span style="color:#446;font-size:0.7rem">▶</span>
+            </div>
+            <div style="color:#ccc;font-size:0.8rem;margin:2px 0">❤️ ${evo.maxHP}HP　⚔️ ${evo.atk}ATK</div>
+            <div style="color:#888;font-size:0.75rem">${evo.effectDesc}</div>
+          </div>
+        </div>`;
+    }
+  }
+
+  const box = document.getElementById('card-detail-box');
+  box.style.borderColor = glow;
+  document.getElementById('card-detail-content').innerHTML = html;
+  document.getElementById('card-detail-overlay').style.display = 'flex';
+}
+
+function showEvoDetail(baseType, evoKey) {
+  const th  = TYPE_THEMES[baseType] || {};
+  const evo = EVOLVE_DEFS[evoKey];
+  const glow = th.glow || '#0f3460';
+
+  // 進化後画像（ゼウス2ルートは imgEvolved / imgEvolved2 を使い分け、なければ emoji）
+  const imgSrc = evoKey === 'Z_almighty' ? (th.imgEvolved2 || null)
+               : evoKey === 'Z_lazy'     ? (th.imgEvolved  || null)
+               : th.imgEvolved;
+  const imgHtml = imgSrc
+    ? `<img src="${imgSrc}" style="width:100%;max-width:200px;height:auto;object-fit:contain;border-radius:10px;margin-bottom:8px;border:2px solid ${glow};display:block;margin-left:auto;margin-right:auto">`
+    : `<div style="font-size:3.5rem;margin-bottom:8px">${th.emoji||'🃏'}</div>`;
+
+  const condHtml = evoKey === 'Z_almighty'
+    ? `<div style="color:#f98;font-size:0.78rem;margin-top:8px;padding:7px 10px;background:#1a0a00;border-radius:6px">条件: 自分のモンスターが2体破壊された時</div>`
+    : '';
+
+  const html = `
+    <button onclick="showDeckMonsterDetail('${baseType}')" style="background:none;border:none;color:#668;font-size:0.8rem;cursor:pointer;padding:0;margin-bottom:10px;text-align:left">← 戻る</button>
+    <div style="background:${th.bg||'#1a2030'};border-radius:10px;padding:14px;margin-bottom:12px;text-align:center">
+      ${imgHtml}
+      <div style="font-size:1.05rem;font-weight:bold;color:#c9a0ff">${evo.evolvedLabel}</div>
+      <div style="display:flex;gap:16px;justify-content:center;font-size:0.88rem;margin-top:6px">
+        <span>❤️ <strong>${evo.maxHP}</strong> HP</span>
+        <span>⚔️ <strong>${evo.atk}</strong> ATK</span>
+      </div>
+    </div>
+    <div style="background:#0d1428;border-radius:8px;padding:12px;font-size:0.85rem;color:#ccc;line-height:1.6;text-align:left">${evo.effectDesc}</div>
+    ${condHtml}`;
+
+  const box = document.getElementById('card-detail-box');
+  box.style.borderColor = glow;
+  document.getElementById('card-detail-content').innerHTML = html;
+  document.getElementById('card-detail-overlay').style.display = 'flex';
+}
+
+function showAbilityDetail(id) {
+  const def = ABILITY_DEFS[id];
+  const th  = CARD_THEMES[id] || { icon: '🃏', bg: '#1a2030', border: '#2a4080' };
+
+  const imgHtml = th.img
+    ? `<img src="${th.img}" style="width:100%;max-width:260px;height:auto;object-fit:contain;border-radius:10px;border:2px solid ${th.border};display:block;margin:0 auto">`
+    : `<div style="font-size:5rem">${th.icon}</div>`;
+
+  const html = `
+    <div style="background:${th.bg};border-radius:10px;padding:16px;margin-bottom:12px;text-align:center">
+      ${imgHtml}
+    </div>
+    <div style="background:#0d1428;border-radius:8px;padding:12px;font-size:0.88rem;color:#ccc;line-height:1.6;text-align:left">${def.desc}</div>`;
+
+  const box = document.getElementById('card-detail-box');
+  box.style.borderColor = th.border || '#0f3460';
+  document.getElementById('card-detail-content').innerHTML = html;
+  document.getElementById('card-detail-overlay').style.display = 'flex';
+}
+
+function renderDeckScreen() {
+  const monsterDeck   = loadMonsterDeck();
+  const abilityCounts = loadAbilityDeck();
+  const mTotal = monsterDeck.length;
+  const aTotal = Object.values(abilityCounts).reduce((a,b) => a+b, 0);
+
+  const mb = document.getElementById('monster-count-badge');
+  mb.textContent = `${mTotal}/${MONSTER_DECK_SIZE}`;
+  mb.style.color = mTotal === MONSTER_DECK_SIZE ? '#4caf50' : '#ff6b6b';
+
+  const ab = document.getElementById('ability-count-badge');
+  ab.textContent = `${aTotal}/${ABILITY_DECK_SIZE}`;
+  ab.style.color = aTotal === ABILITY_DECK_SIZE ? '#4caf50' : '#ff6b6b';
+
+  // Monster editor
+  const typeCounts = {};
+  for (const t of monsterDeck) typeCounts[t] = (typeCounts[t]||0) + 1;
+  const availMonsters = MONSTER_DEFS.filter(m => !m.hidden);
+  document.getElementById('monster-deck-editor').innerHTML = availMonsters.map(m => {
+    const th = TYPE_THEMES[m.type] || {};
+    const cnt = typeCounts[m.type] || 0;
+    const canAdd = cnt < MONSTER_MAX_COPY && mTotal < MONSTER_DECK_SIZE;
+    const canRem = cnt > 0;
+    return `<div class="deck-row">
+      <span class="deck-row-label" onclick="showDeckMonsterDetail('${m.type}')" style="cursor:pointer">${th.emoji||'🃏'} ${m.label}
+        <span style="color:#446;font-size:0.7rem"> ${m.maxHP}HP / ${m.atk}ATK</span>
+        <span style="color:#334;font-size:0.65rem"> ▶</span></span>
+      <div class="deck-row-controls">
+        <button class="deck-adj-btn" onclick="deckRemMonster('${m.type}')" ${canRem?'':'disabled'}>－</button>
+        <span class="deck-row-count">${cnt}</span>
+        <button class="deck-adj-btn" onclick="deckAddMonster('${m.type}')" ${canAdd?'':'disabled'}>＋</button>
+      </div>
+      <span class="deck-row-limit">/${MONSTER_MAX_COPY}</span>
+    </div>`;
+  }).join('');
+
+  // Ability editor（パック未実装カードは非表示）
+  const ABILITY_HIDDEN = new Set(['kaishuu', 'fuuin', 'fushi']);
+  const abilityIds = Object.keys(ABILITY_DEFS).filter(id => !ABILITY_HIDDEN.has(id));
+  document.getElementById('ability-deck-editor').innerHTML = abilityIds.map(id => {
+    const def = ABILITY_DEFS[id];
+    const th  = CARD_THEMES[id] || { icon:'🃏' };
+    const cnt = abilityCounts[id] || 0;
+    const maxCopy = ABILITY_COUNTS[id] ?? ABILITY_MAX_COPY;
+    const canAdd = cnt < maxCopy && aTotal < ABILITY_DECK_SIZE;
+    const canRem = cnt > 0;
+    return `<div class="deck-row">
+      <span class="deck-row-label" onclick="showAbilityDetail('${id}')" style="cursor:pointer">${th.icon} ${def.name}
+        <span style="color:#446;font-size:0.7rem"> ${def.desc}</span>
+        <span style="color:#334;font-size:0.65rem"> ▶</span></span>
+      <div class="deck-row-controls">
+        <button class="deck-adj-btn" onclick="deckRemAbility('${id}')" ${canRem?'':'disabled'}>－</button>
+        <span class="deck-row-count">${cnt}</span>
+        <button class="deck-adj-btn" onclick="deckAddAbility('${id}')" ${canAdd?'':'disabled'}>＋</button>
+      </div>
+      <span class="deck-row-limit">/${maxCopy}</span>
+    </div>`;
+  }).join('');
+
+  const valid = mTotal === MONSTER_DECK_SIZE && aTotal === ABILITY_DECK_SIZE;
+  document.getElementById('btn-battle-start').disabled = !valid;
+  document.getElementById('btn-online-start').disabled = !valid;
+}
+
+function deckAddMonster(type) {
+  const deck = loadMonsterDeck();
+  const cnt = deck.filter(t => t === type).length;
+  if (cnt >= MONSTER_MAX_COPY || deck.length >= MONSTER_DECK_SIZE) return;
+  deck.push(type);
+  saveMonsterDeck(deck);
+  renderDeckScreen();
+}
+function deckRemMonster(type) {
+  const deck = loadMonsterDeck();
+  const idx = deck.lastIndexOf(type);
+  if (idx < 0) return;
+  deck.splice(idx, 1);
+  saveMonsterDeck(deck);
+  renderDeckScreen();
+}
+function deckAddAbility(id) {
+  const counts = loadAbilityDeck();
+  const total  = Object.values(counts).reduce((a,b) => a+b, 0);
+  const maxCopy = ABILITY_COUNTS[id] ?? ABILITY_MAX_COPY;
+  if ((counts[id]||0) >= maxCopy || total >= ABILITY_DECK_SIZE) return;
+  counts[id] = (counts[id]||0) + 1;
+  saveAbilityDeck(counts);
+  renderDeckScreen();
+}
+function deckRemAbility(id) {
+  const counts = loadAbilityDeck();
+  if (!counts[id] || counts[id] <= 0) return;
+  counts[id]--;
+  saveAbilityDeck(counts);
+  renderDeckScreen();
+}
+
+function startGame() {
+  // フィールド背景リセット
+  document.getElementById('player-area').style.background = '';
+  document.getElementById('enemy-area').style.background  = '';
+  const godTypes = ['Z','Ar','Po','At','He'];
+  // プレイヤー: 神デッキモードならミラー、通常はlocalStorage保存デッキ
+  const pMonsters = cpuMode === 'god'
+    ? shuffle(MONSTER_DEFS.filter(m => godTypes.includes(m.type)))
+    : shuffle(loadMonsterDeck().map(t => MONSTER_DEFS.find(m => m.type === t) || MONSTER_DEFS[0]));
+  // CPU デッキ選択（通常: A〜E固定 / 神: Z+Ar+Po+At+He）
+  const cMonsters = cpuMode === 'god'
+    ? shuffle(MONSTER_DEFS.filter(m => godTypes.includes(m.type)))
+    : shuffle(MONSTER_DEFS.filter(m => !m.hidden && m.type !== 'Z'));
+  const playerFirst = Math.random() < 0.5;
+
+  G = {
+    turn: 1,
+    maxTurns: 25,
+    activePlayer: playerFirst ? 'player' : 'cpu',
+    phase: 'ability',
+    extraAttack: false,
+    hasAttacked: false,
+    attacksThisTurn: 0,
+    maxAttacksThisTurn: 1,
+    abilityUsed: false,
+    evolvedThisTurn: false,
+    swappedThisTurn: false,
+    attackBlocked: false,
+    nullifyChosen: null,
+    gameOver: false,
+    winner: null,
+
+    player: {
+      main: createMonster(pMonsters[0]),
+      sub:  createMonster(pMonsters[1]),
+      monsterDeck: pMonsters.slice(2).map(createMonster),
+      abilityDeck: (() => {
+        const counts = cpuMode === 'god' ? GOD_ABILITY_DECK : loadAbilityDeck();
+        const deck = [];
+        for (const [id, cnt] of Object.entries(counts)) {
+          for (let i = 0; i < cnt; i++) deck.push(id);
+        }
+        return shuffle(deck);
+      })(),
+      hand: [],
+      discardPile: [],
+      sealedIndices: new Set(),
+      fushiActive: false,
+      destroyedCount: 0,
+      evolvedTotal: 0,
+      shielded: false,
+    },
+    cpu: {
+      main: createMonster(cMonsters[0]),
+      sub:  createMonster(cMonsters[1]),
+      monsterDeck: cMonsters.slice(2).map(createMonster),
+      abilityDeck: (() => {
+        const src = cpuMode === 'god' ? GOD_ABILITY_DECK : ABILITY_COUNTS;
+        const deck = [];
+        for (const [id, cnt] of Object.entries(src)) {
+          for (let i = 0; i < cnt; i++) deck.push(id);
+        }
+        return shuffle(deck);
+      })(),
+      hand: [],
+      discardPile: [],
+      sealedIndices: new Set(),
+      fushiActive: false,
+      destroyedCount: 0,
+      evolvedTotal: 0,
+      shielded: false,
+    },
+  };
+
+  const firstHand  = playerFirst ? 3 : 4;
+  const secondHand = playerFirst ? 4 : 3;
+  for (let i = 0; i < firstHand;  i++) drawAbility('player');
+  for (let i = 0; i < secondHand; i++) drawAbility('cpu');
+
+  document.getElementById('start-screen').style.display = 'none';
+  const gc = document.getElementById('game-container');
+  gc.style.display = 'flex';
+  gc.style.flexDirection = 'column';
+  initHandScroll();
+
+  const orderText = playerFirst ? 'あなたが先攻！' : 'CPUが先攻。あなたは後攻。';
+  addLog(`ゲーム開始！${orderText}`, 'log-system');
+  addLog(`あなた: メイン${G.player.main.label} / サブ${G.player.sub.label}`, 'log-system');
+  addLog(`CPU: メイン${G.cpu.main.label} / サブ${G.cpu.sub.label}`, 'log-system');
+
+  if (playerFirst) {
+    drawAbilityAtTurnStart('player');
+    render();
+    setTimeout(() => showTurnBanner('player', '先攻'), 300);
+  } else {
+    render();
+    setTimeout(() => showTurnBanner('cpu', '先攻'), 300);
+    document.getElementById('cpu-thinking').style.display = 'inline-block';
+    drawAbilityAtTurnStart('cpu');
+    setTimeout(() => cpuAct(), 1200);
+  }
+}
+
+function drawAbility(who) {
+  const p = G[who];
+  if (p.abilityDeck.length > 0) p.hand.push(p.abilityDeck.shift());
+}
+
+function drawAbilityAtTurnStart(who) {
+  const p = G[who];
+  p.sealedIndices = new Set(); // 封印は1ターンのみ
+  // xdraw: 戦女神アテナ 追加ドロー
+  if (p.main?.evolveEffect === 'xdraw' && p.abilityDeck.length > 0) {
+    const xcard = p.abilityDeck.shift();
+    p.hand.push(xcard);
+    const xcardName = ABILITY_DEFS[xcard]?.name || xcard;
+    if (who === 'player') addLog(`🦉 アテナ追加ドロー: 「${xcardName}」`, '');
+    showCpuAction('🦉', `知恵の閃き！「${xcardName}」をドロー`, 'ability', null);
+  }
+  // regen: 炉神ヘスティア 開始時回復
+  if (p.main?.evolveEffect === 'regen') {
+    const before = p.main.hp;
+    p.main.hp = clamp(p.main.hp + REGEN_AMT, 0, p.main.maxHP);
+    const healed = p.main.hp - before;
+    if (healed > 0) {
+      addLog(`🔥 ${who === 'player' ? 'あなたの' : 'CPUの'}ヘスティア：HP+${healed}回復（${p.main.hp}/${p.main.maxHP}）`, 'log-heal');
+      showCpuAction('🔥', `炉の加護！HP回復 ${healed}`, 'heal', null);
+    }
+  }
+  // 通常ドロー
+  if (p.abilityDeck.length > 0) {
+    const card = p.abilityDeck.shift();
+    p.hand.push(card);
+    if (who === 'player') addLog(`ドロー: 「${ABILITY_DEFS[card].name}」`, '');
+  } else {
+    if (who === 'player') addLog('能力デッキ切れ（ドロースキップ）', 'log-system');
+  }
+}
+
+// ===================================================
+// RENDER
+// ===================================================
+function render() {
+  if (!G) return;
+  renderHeader();
+  renderField('cpu');
+  renderField('player');
+  renderHand();
+  renderButtons();
+  setTimeout(updateHandArrows, 50);
+}
+
+function hpColor(hp, maxHP) {
+  const r = hp / maxHP;
+  if (r > 0.6) return '#4caf50';
+  if (r > 0.3) return '#ff9800';
+  return '#f44336';
+}
+
+function battleCardHTML(m, size, who, slot) {
+  if (!m) {
+    const cls = size === 'main' ? 'main-empty' : 'sub-empty';
+    return `<div class="empty-slot ${cls}">—</div>`;
+  }
+  const theme = TYPE_THEMES[m.type] || TYPE_THEMES['A'];
+  const ratio = m.hp / m.maxHP;
+  const hpCol = hpColor(m.hp, m.maxHP);
+  const isEvolved = m.evolved;
+  const glowClass = isEvolved ? ' evolved-glow' : '';
+  const roleName = size === 'main' ? 'メイン' : 'サブ';
+  const catTheme  = CATEGORY_THEME[m.category] || { border: 'rgba(255,255,255,0.12)', bg: theme.bg };
+  const borderCol = catTheme.border;
+  const bgStyle   = catTheme.bg;
+
+  let effectBadge = '';
+  if (isEvolved) {
+    if (m.evolveEffect === 'endure')         effectBadge = m.endureAvailable ? '🛡 耐え：残1回' : '🛡 耐え：使用済';
+    else if (m.evolveEffect === 'd_heal')       effectBadge = m.dHealAvailable  ? '💧 回復：残1回' : '💧 回復：使用済';
+    else if (m.evolveEffect === 'reflect')      effectBadge = '⚡ 反射';
+    else if (m.evolveEffect === 'double_attack') effectBadge = '✊ 2回攻撃';
+    else if (m.evolveEffect === 'ares_bonus')   effectBadge = `⚔ +${ARES_BONUS}ボーナス`;
+    else if (m.evolveEffect === 'wave')         effectBadge = `🌊 波涛${WAVE_DMG}/T`;
+    else if (m.evolveEffect === 'regen')        effectBadge = `🔥 回復${REGEN_AMT}/T`;
+    else if (m.evolveEffect === 'xdraw')        effectBadge = `🦉 追加ドロー`;
+    else if (m.evolveEffect === 'zeus_lazy')    effectBadge = `⚡ 超進化待機中`;
+    else effectBadge = '★ 強化';
+  }
+
+  const clickAttr = (who === 'player' && slot === 'sub')
+    ? `onclick="onSubCardClick()"`
+    : (who && slot) ? `onclick="showMonsterDetail('${who}','${slot}')"` : '';
+
+  return `<div class="battle-card ${size}-battle-card${glowClass}" style="background:${bgStyle};border-color:${borderCol}" ${clickAttr}>
+    ${isEvolved ? '<div class="evolved-badge">進化</div>' : ''}
+    <div class="card-art">${(() => {
+      if (isEvolved) {
+        const src = (m.evolveEffect === 'nullify' && theme.imgEvolved2) ? theme.imgEvolved2
+                  : theme.imgEvolved ? theme.imgEvolved : null;
+        if (src) return `<img src="${src}" alt="${m.label}">`;
+      } else if (theme.img) {
+        return `<img src="${theme.img}" alt="${m.label}">`;
+      }
+      return theme.emoji;
+    })()}</div>
+    <div class="card-hp-bar-wrap"><div class="card-hp-bar" style="width:${Math.max(0,ratio*100)}%;background:${hpCol}"></div></div>
+    <div class="card-stats">
+      <span class="card-hp-text">${m.hp}/${m.maxHP}</span>
+      <span class="card-atk-text">ATK ${m.atk}</span>
+    </div>
+    <div class="card-role-badge">${roleName}</div>
+    ${effectBadge ? `<div class="card-effect-badge">${effectBadge}</div>` : ''}
+  </div>`;
+}
+
+function renderField(who) {
+  const p = G[who];
+  const fieldEl = document.getElementById(who === 'cpu' ? 'cpu-field' : 'player-field');
+  const isCPU = who === 'cpu';
+  const shieldBadge = p.shielded ? `<div style="position:absolute;top:4px;right:4px;font-size:1.1rem;z-index:10" title="シールド中">🛡️</div>` : '';
+  const nextM = p.monsterDeck.length > 0 ? p.monsterDeck[0] : null;
+  const nextTheme = nextM ? (TYPE_THEMES[nextM.type] || TYPE_THEMES['A']) : null;
+
+  // CPU: next is hidden (?)
+  const cpuNextIndicator = `<div class="next-indicator" style="opacity:0"></div>`;
+
+  // Player: next shown dimly
+  const nextArt = nextM
+    ? (nextM.evolved && nextTheme.imgEvolved ? `<img src="${nextTheme.imgEvolved}" style="width:68px;height:68px;object-fit:contain">` : nextTheme.img ? `<img src="${nextTheme.img}" style="width:68px;height:68px;object-fit:contain">` : `<div class="next-art">${nextTheme.emoji}</div>`)
+    : `<div style="color:#1a2030;font-size:1rem">✕</div>`;
+  const playerNextIndicator = nextM
+    ? `<div class="next-indicator" style="opacity:0.85">${nextArt}<div>次↑</div><div>${nextM.label}</div></div>`
+    : `<div class="next-indicator" style="opacity:0.4">${nextArt}<div>次↑</div></div>`;
+
+  let html = '';
+  if (isCPU) {
+    // CPU: sub left, main center, next hidden right
+    html += battleCardHTML(p.sub,  'sub',  who, 'sub');
+    html += battleCardHTML(p.main, 'main', who, 'main');
+    html += cpuNextIndicator;
+
+    document.getElementById('cpu-hand-count').textContent = p.hand.length;
+    document.getElementById('cpu-deck-count').textContent = p.abilityDeck.length;
+    document.getElementById('cpu-destroyed-badge').textContent = `CPU ${p.destroyedCount}/3`;
+  } else {
+    // Player: next left (dimmed), main center, sub right
+    html += playerNextIndicator;
+    html += battleCardHTML(p.main, 'main', who, 'main');
+    html += battleCardHTML(p.sub,  'sub',  who, 'sub');
+
+    document.getElementById('player-hand-count-label').textContent = `手札 ${p.hand.length}`;
+    document.getElementById('player-deck-count-label').textContent = `デッキ ${p.abilityDeck.length}枚`;
+    const pdb = document.getElementById('player-destroy-badge');
+    if (pdb) pdb.textContent = `あなた ${p.destroyedCount}/3`;
+  }
+  fieldEl.style.position = 'relative';
+  fieldEl.innerHTML = html + shieldBadge;
+}
+
+function renderHeader() {
+  const round = Math.ceil(G.turn / 2);
+  const whose = G.activePlayer === 'player' ? 'あなたのターン' : 'CPUのターン';
+  document.getElementById('turn-info').textContent = `R${round}/25　${whose}`;
+  document.getElementById('score-info').textContent =
+    `あなた ${G.player.destroyedCount} — ${G.cpu.destroyedCount} CPU`;
+}
+
+function renderHand() {
+  const hand = G.player.hand;
+  const handEl = document.getElementById('hand-cards');
+
+  if (hand.length === 0) {
+    handEl.innerHTML = '<span class="no-cards">手札なし</span>';
+    return;
+  }
+
+  const isPlayerTurn = G.activePlayer === 'player';
+  const evolvedCMain = G.player.main && G.player.main.evolveEffect === 'double_attack';
+
+  let html = '';
+  hand.forEach((cardId, idx) => {
+    const def = ABILITY_DEFS[cardId];
+    const theme = CARD_THEMES[cardId] || { icon: '🃏', bg: '#0a1428', border: '#2a3860', desc: def.desc };
+    const isSealed = G.player.sealedIndices.has(idx);
+    let isDisabled = def.disabled || G.phase !== 'ability' || !isPlayerTurn || G.abilityUsed || isSealed;
+    if (!isDisabled && evolvedCMain && G.attacksThisTurn > 0) isDisabled = true;
+    if (!isDisabled && cardId === 'extra_attack' && G.attackBlocked) isDisabled = true;
+    const isSelected = selectedCardIdx === idx;
+
+    html += `<div class="hand-card${isDisabled ? ' disabled' : ''}${isSelected ? ' selected' : ''}${theme.img ? ' hand-card-image' : ''}"
+      style="background:${theme.bg};border-color:${isSealed ? '#9040c0' : theme.border}55"
+      onclick="selectCard(${idx})" title="${isSealed ? '🔒 封印中' : def.desc}">
+      ${isSealed
+        ? `<div class="hand-card-icon">🔒</div><div class="hand-card-name">${def.name}</div><div class="hand-card-desc">封印中</div>`
+        : theme.img
+          ? `<img src="${theme.img}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;display:block">`
+          : `<div class="hand-card-icon">${theme.icon}</div><div class="hand-card-name">${def.name}</div><div class="hand-card-desc">${theme.desc}</div>`
+      }
+    </div>`;
+  });
+  handEl.innerHTML = html;
+}
+
+function renderButtons() {
+  const isPlayerTurn = G.mode === 'online' ? G.myTurn : G.activePlayer === 'player';
+  const btnAttack = document.getElementById('btn-attack');
+  const btnEnd    = document.getElementById('btn-end');
+  const btnDHeal  = document.getElementById('btn-dheal');
+  const btnEvolve = document.getElementById('btn-evolve');
+
+  // D進化スキル
+  const playerMain = G.player.main;
+  const dHealMonster = (playerMain && playerMain.evolveEffect === 'd_heal' && playerMain.dHealAvailable)
+                     ? playerMain
+                     : (G.player.sub && G.player.sub.evolveEffect === 'd_heal' && G.player.sub.dHealAvailable)
+                     ? G.player.sub : null;
+  const showDHeal = isPlayerTurn && dHealMonster && !G.gameOver;
+  btnDHeal.style.display = showDHeal ? 'inline-flex' : 'none';
+
+  // 進化ボタン
+  const hasAttackedThisTurn = G.attacksThisTurn > 0;
+  const canEvolve = isPlayerTurn && !G.evolvedThisTurn && !G.attackBlocked && !hasAttackedThisTurn
+                    && G.player.sub && !G.player.sub.evolved
+                    && G.player.evolvedTotal < 2
+                    && !G.gameOver && G.phase !== 'gameover';
+  btnEvolve.disabled = !canEvolve;
+  btnEvolve.innerHTML = `<span class="btn-icon">⬆️</span>進化`;
+
+  // 交換ボタン
+  const btnSwap = document.getElementById('btn-swap');
+  const canSwap = isPlayerTurn && !G.swappedThisTurn && !G.attackBlocked && !hasAttackedThisTurn
+                  && G.player.sub && !G.gameOver && G.phase !== 'gameover';
+  btnSwap.disabled = !canSwap;
+
+  // phase-infoをターン状態として使用
+  const phaseEl = document.getElementById('phase-info');
+  if (phaseEl) {
+    if (!isPlayerTurn) phaseEl.textContent = 'CPUのターン';
+    else if (G.phase === 'gameover') phaseEl.textContent = 'ゲーム終了';
+    else phaseEl.textContent = 'あなたのターン';
+  }
+
+  if (_popupBusy) {
+    btnAttack.disabled = true;
+    btnEnd.disabled    = true;
+    document.getElementById('btn-evolve').disabled = true;
+    document.getElementById('btn-swap').disabled   = true;
+    updateActionStates();
+    return;
+  }
+
+  if (!isPlayerTurn || G.phase === 'gameover') {
+    btnAttack.disabled = true;
+    btnEnd.disabled    = true;
+    updateActionStates();
+    return;
+  }
+
+  const evolvedCMain = playerMain && playerMain.evolveEffect === 'double_attack';
+  const mainAtkIsZero = playerMain && playerMain.atk === 0;
+  let canAttack;
+  if (G.attackBlocked || mainAtkIsZero) {
+    canAttack = false;
+  } else if (evolvedCMain) {
+    canAttack = !G.abilityUsed && G.attacksThisTurn < 2;
+  } else {
+    canAttack = G.attacksThisTurn < G.maxAttacksThisTurn;
+  }
+  btnAttack.disabled = !canAttack;
+  btnEnd.disabled = false;
+
+  updateActionStates();
+}
+
+function updateActionStates() {
+  const se = document.getElementById('state-evolve');
+  const sa = document.getElementById('state-ability');
+  const sk = document.getElementById('state-attack');
+  if (se) se.className = 'action-state' + (G.evolvedThisTurn ? ' done' : '');
+  if (sa) sa.className = 'action-state' + (G.abilityUsed ? ' done' : '');
+  if (sk) sk.className = 'action-state' + (G.attacksThisTurn > 0 ? ' done' : '');
+}
+
+// ===================================================
+// PLAYER ACTIONS
+// ===================================================
+function selectCard(idx) {
+  if (_popupBusy) return;
+  if (G.activePlayer !== 'player' || G.phase !== 'ability' || G.abilityUsed) return;
+  const card = G.player.hand[idx];
+  if (ABILITY_DEFS[card].disabled) return;
+  if (G.player.sealedIndices.has(idx)) return; // 封印中
+  if (G.player.main && G.player.main.evolveEffect === 'double_attack' && G.attacksThisTurn > 0) return;
+  showAbilityConfirm(idx);
+}
+
+function showAbilityConfirm(idx) {
+  const cardId = G.player.hand[idx];
+  const def    = ABILITY_DEFS[cardId];
+  const theme  = CARD_THEMES[cardId] || { icon: '🃏', desc: def.desc };
+  document.getElementById('modal-title').textContent = `${theme.icon} ${def.name}`;
+  const opts = document.getElementById('modal-options');
+  opts.innerHTML = `
+    <div style="width:100%;text-align:center;margin-bottom:12px">
+      <div style="font-size:2.8rem;margin-bottom:8px">${theme.icon}</div>
+      <div style="font-size:0.85rem;color:#aaa">${def.desc}</div>
+    </div>
+    <button class="modal-monster-btn" style="flex:1;background:linear-gradient(135deg,#0a2858,#1a5aaa);border-color:#2a7aee;color:#90c8ff;font-size:1rem" onclick="confirmAbilityCard(${idx})">はい</button>
+    <button class="modal-monster-btn" style="flex:1;background:#1a2030;border-color:#3a4060;color:#aaa;font-size:1rem" onclick="closeModal()">いいえ</button>
+  `;
+  document.getElementById('modal-cancel-btn').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function confirmAbilityCard(idx) {
+  closeModal();
+  const cardId = G.player.hand[idx];
+  applyAbilityCard('player', cardId, idx);
+}
+
+function cancelCardSelect() {
+  selectedCardIdx = null;
+  render();
+}
+
+function useSelectedCard() {
+  if (selectedCardIdx === null) return;
+  const cardId = G.player.hand[selectedCardIdx];
+  if (cardId === 'extra_attack' && G.attackBlocked) return;
+  applyAbilityCard('player', cardId, selectedCardIdx);
+}
+
+function applyAbilityCard(who, cardId, handIdx, cpuCallback, data = {}) {
+  if (G.gameOver) return;
+  if (who === 'player') showFX('ability');
+  if (who === 'cpu') {
+    showFX('ability');
+  }
+  const self = G[who];
+  const opp  = G[who === 'player' ? 'cpu' : 'player'];
+  const def  = ABILITY_DEFS[cardId];
+  const me   = who === 'player' ? 'あなた' : 'CPU';
+  const them = who === 'player' ? 'CPUの' : 'あなたの';
+
+  // 手札から取り出して捨て札へ
+  self.hand.splice(handIdx, 1);
+  self.discardPile.push(cardId);
+  // sealedIndices を調整（使ったカードを除去し、それより大きいインデックスを-1）
+  self.sealedIndices.delete(handIdx);
+  const newSealed = new Set();
+  for (const si of self.sealedIndices) { newSealed.add(si > handIdx ? si - 1 : si); }
+  self.sealedIndices = newSealed;
+
+  switch (cardId) {
+    case 'swap_enemy':
+      [opp.main, opp.sub] = [opp.sub, opp.main];
+      addLog(`${me}が「${def.name}」：${them}メイン⇔サブ強制入れ替え`, '');
+      break;
+
+    case 'direct_damage': {
+      if (opp.shielded) {
+        opp.shielded = false;
+        addLog(`🛡️ ${them}シールド発動！「${def.name}」を無効化！`, 'log-evolve');
+      } else {
+        const dmg = DIRECT_DAMAGE;
+        opp.main.hp = clamp(opp.main.hp - dmg, 0, opp.main.maxHP);
+        addLog(`${me}が「${def.name}」：${them}${opp.main.type}に${dmg}ダメージ（残HP: ${opp.main.hp}）`, 'log-damage');
+        // render後にカードを揺らす（render前に追加するとHTMLが再構築されて消える）
+        const ddFieldId = who === 'player' ? 'cpu-field' : 'player-field';
+        setTimeout(() => {
+          const ddCard = document.getElementById(ddFieldId)?.querySelector('.main-battle-card');
+          if (ddCard) { ddCard.classList.add('card-shake'); setTimeout(() => ddCard.classList.remove('card-shake'), 600); }
+        }, 50);
+        checkMonsterDestroyed(who === 'player' ? 'cpu' : 'player', who);
+      }
+      break;
+    }
+
+    case 'extra_attack':
+      G.extraAttack = true;
+      G.maxAttacksThisTurn = 2;
+      addLog(`${me}が「${def.name}」：このターン追加攻撃！`, '');
+      break;
+
+    case 'heal_main': {
+      const heal = HEAL_MAIN_AMT;
+      const before = self.main.hp;
+      self.main.hp = clamp(self.main.hp + heal, 0, self.main.maxHP);
+      addLog(`${me}が「${def.name}」：${self.main.type}を+${self.main.hp - before}回復（${self.main.hp}/${self.main.maxHP}）`, 'log-heal');
+      break;
+    }
+
+    case 'heal_all': {
+      const heal = HEAL_ALL_AMT;
+      const bM = self.main.hp, bS = self.sub ? self.sub.hp : 0;
+      self.main.hp = clamp(self.main.hp + heal, 0, self.main.maxHP);
+      if (self.sub) self.sub.hp = clamp(self.sub.hp + heal, 0, self.sub.maxHP);
+      addLog(`${me}が「${def.name}」：メイン+${self.main.hp - bM}、サブ+${self.sub ? self.sub.hp - bS : 0}回復`, 'log-heal');
+      break;
+    }
+
+    case 'monster_select':
+      if (who === 'player') {
+        showMonsterSelectModal('player', cpuCallback);
+        return;
+      } else {
+        if (self.monsterDeck.length > 0) {
+          self.monsterDeck.sort((a, b) => (b.atk + (b.evolved ? 5 : 0)) - (a.atk + (a.evolved ? 5 : 0)));
+          addLog(`CPUが「${def.name}」：次のモンスターを指定`, '');
+        }
+      }
+      break;
+
+    case 'shuffle_enemy':
+      if (opp.hand.length > 0) {
+        const discardIdx = Math.floor((rng ? rng.next() : Math.random()) * opp.hand.length);
+        if (data) data._discardedIdx = discardIdx; // オンライン送信用
+        const discarded = opp.hand.splice(discardIdx, 1)[0];
+        opp.discardPile.push(discarded);
+        // 相手のsealedIndices調整
+        opp.sealedIndices.delete(discardIdx);
+        const newSealedOpp = new Set();
+        for (const si of opp.sealedIndices) { newSealedOpp.add(si > discardIdx ? si - 1 : si); }
+        opp.sealedIndices = newSealedOpp;
+        const discardedName = ABILITY_DEFS[discarded] ? ABILITY_DEFS[discarded].name : discarded;
+        addLog(`${me}が「${def.name}」：${them}手札「${discardedName}」を捨てさせた！`, 'log-damage');
+      } else {
+        addLog(`${me}が「${def.name}」：${them}手札が空で効果なし`, '');
+      }
+      break;
+
+    case 'kaishuu':
+      if (self.discardPile.length > 0) {
+        const pickIdx = Math.floor((rng ? rng.next() : Math.random()) * self.discardPile.length);
+        const picked = self.discardPile.splice(pickIdx, 1)[0];
+        self.hand.push(picked);
+        addLog(`${me}が「${def.name}」：捨て札「${ABILITY_DEFS[picked]?.name || picked}」を手札へ！`, 'log-heal');
+      } else {
+        addLog(`${me}が「${def.name}」：捨て札が空で効果なし`, '');
+      }
+      break;
+
+    case 'fushi':
+      if (self.main && self.main.category === '神') {
+        self.fushiActive = true;
+        addLog(`✨ ${me}が「${def.name}」：${self.main.label || self.main.type}に不死の加護！このターン致死ダメージを1度無効`, 'log-evolve');
+      } else {
+        addLog(`${me}が「${def.name}」：メインが神カテゴリでないため効果なし`, '');
+      }
+      break;
+
+    case 'fuuin': {
+      if (opp.hand.length > 0) {
+        // 未封印のインデックスから最大3枚選ぶ
+        const available = [...Array(opp.hand.length).keys()].filter(i => !opp.sealedIndices.has(i));
+        const toSeal = shuffle(available).slice(0, 3);
+        toSeal.forEach(i => opp.sealedIndices.add(i));
+        const names = toSeal.map(i => ABILITY_DEFS[opp.hand[i]]?.name || opp.hand[i]).join('・');
+        addLog(`${me}が「${def.name}」：${them}手札${toSeal.length}枚を封印！（${names}）`, 'log-damage');
+      } else {
+        addLog(`${me}が「${def.name}」：${them}手札が空で効果なし`, '');
+      }
+      break;
+    }
+
+    case 'shield':
+      self.shielded = true;
+      addLog(`${me}が「${def.name}」：次の攻撃を無効化！`, 'log-evolve');
+      break;
+  }
+
+  if (who === 'player') {
+    G.abilityUsed = true;
+    selectedCardIdx = null;
+    if (G.mode === 'online') {
+      const extra = {};
+      if (cardId === 'shuffle_enemy' && data._discardedIdx !== undefined) extra.discardedIdx = data._discardedIdx;
+      sendOnlineAction({ action: 'use_card', cardId, ...extra });
+    }
+    render();
+  } else {
+    if (cpuCallback) cpuCallback();
+  }
+
+  if (!G.gameOver) render();
+}
+
+// ===================================================
+// 進化ボタン（プレイヤー）
+// ===================================================
+function onSubCardClick() {
+  if (!G || G.gameOver) return;
+  const canEvolve = G.activePlayer === 'player' && !G.evolvedThisTurn &&
+    !G.attackBlocked && G.attacksThisTurn === 0 &&
+    G.player.sub && !G.player.sub.evolved &&
+    G.player.evolvedTotal < 2 && !_popupBusy;
+  if (canEvolve) playerEvolve();
+  else showMonsterDetail('player', 'sub');
+}
+
+function playerEvolve() {
+  if (_popupBusy) return;
+  if (G.activePlayer !== 'player' || G.gameOver) return;
+  if (G.evolvedThisTurn) return;
+  if (G.attackBlocked || G.attacksThisTurn > 0) return;
+  if (!G.player.sub || G.player.sub.evolved) {
+    addLog('サブに進化できるモンスターがいません', 'log-warn');
+    return;
+  }
+  // ゼウスは怠け者一択（超進化は自動）
+  if (G.player.sub.type === 'Z') {
+    if (!confirmActionsEnabled) { doPlayerEvolve('Z_lazy'); return; }
+    showZeusEvolveConfirm(); return;
+  }
+  if (!confirmActionsEnabled) { doPlayerEvolve(); return; }
+  showEvolveConfirm();
+}
+
+function showEvolveConfirm() {
+  const sub = G.player.sub;
+  const ev  = EVOLVE_DEFS[sub.type];
+  const theme = TYPE_THEMES[sub.type] || TYPE_THEMES['A'];
+  document.getElementById('modal-title').textContent = `⬆️ ${sub.label} を進化させますか？`;
+  const opts = document.getElementById('modal-options');
+  const imgTag = theme.imgEvolved
+    ? `<img src="${theme.imgEvolved}" style="width:140px;height:140px;object-fit:contain;display:block;margin:0 auto 10px;border-radius:8px">`
+    : '';
+  opts.innerHTML = `
+    <div style="width:100%;text-align:center;margin-bottom:10px">
+      ${imgTag}
+      <div style="font-size:0.85rem;color:#c9a0ff;margin-bottom:4px">→ ${ev.evolvedLabel}</div>
+      <div style="font-size:0.75rem;color:#888">${ev.effectDesc}</div>
+    </div>
+    <button class="modal-monster-btn" style="flex:1;background:linear-gradient(135deg,#2a0a5a,#6a1fbe);border-color:#b47aff;color:#f0d0ff;font-size:1rem" onclick="confirmEvolve()">はい</button>
+    <button class="modal-monster-btn" style="flex:1;background:#1a2030;border-color:#3a4060;color:#aaa;font-size:1rem" onclick="closeModal()">いいえ</button>
+  `;
+  document.getElementById('modal-cancel-btn').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function showZeusEvolveConfirm() {
+  const ev = EVOLVE_DEFS['Z_lazy'];
+  document.getElementById('modal-title').textContent = `⚡ ゼウスを怠け者ゼウスに進化させますか？`;
+  const opts = document.getElementById('modal-options');
+  const zeusTheme = TYPE_THEMES['Z'];
+  opts.innerHTML = `
+    <div style="width:100%;text-align:center;margin-bottom:10px;padding:10px;background:#0d1428;border-radius:8px">
+      ${zeusTheme.imgEvolved ? `<img src="${zeusTheme.imgEvolved}" style="width:140px;height:140px;object-fit:contain;display:block;margin:0 auto 8px;border-radius:8px">` : ''}
+      <div style="font-size:0.9rem;color:#c0ffc0;font-weight:bold;margin-bottom:4px">怠け者ゼウス</div>
+      <div style="font-size:0.78rem;color:#888">HP:${ev.maxHP}　ATK:${ev.atk}</div>
+      <div style="font-size:0.75rem;color:#ffd000;margin-top:6px">⚡ ${ev.effectDesc}</div>
+    </div>
+    <button class="modal-monster-btn" style="flex:1;background:linear-gradient(135deg,#1a2a1a,#2a5a2a);border-color:#60c060;color:#c0ffc0;font-size:1rem" onclick="confirmEvolveZeus('Z_lazy')">進化！</button>
+    <button class="modal-monster-btn" style="flex:1;background:#1a2030;border-color:#3a4060;color:#aaa;font-size:1rem" onclick="closeModal()">キャンセル</button>
+  `;
+  document.getElementById('modal-cancel-btn').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+
+function confirmEvolve() {
+  closeModal();
+  doPlayerEvolve();
+}
+
+function confirmEvolveZeus(key) {
+  closeModal();
+  doPlayerEvolve(key);
+}
+
+function doPlayerEvolve(key) {
+  const m = G.player.sub;
+  if (!m || m.evolved) return;
+  if (G.player.evolvedTotal >= 2) { addLog('⚠️ 進化は2回までです', 'log-warn'); return; }
+  evolveMonster(m, key);
+  G.evolvedThisTurn = true;
+  G.attackBlocked = true;
+  G.player.evolvedTotal++;
+  const evKey = key || m.type;
+  const ev = EVOLVE_DEFS[evKey];
+  addLog(`✨ あなたの${m.label}（サブ）が進化！HP:${m.hp}/${m.maxHP}　ATK:${m.atk}`, 'log-evolve');
+  addLog(`  → 進化効果: ${ev.effectDesc}（このターン攻撃不可）`, 'log-evolve');
+  if (G.mode === 'online') sendOnlineAction({ action: 'evolve', evolveKey: key || null });
+  showFX('evolve');
+  showEvolveToast(m);
+  render();
+}
+
+function playerSwap() {
+  if (_popupBusy) return;
+  if (G.activePlayer !== 'player' || G.gameOver) return;
+  if (G.swappedThisTurn || G.attackBlocked || G.attacksThisTurn > 0) return;
+  if (!G.player.sub) { addLog('交換できるサブがいません', 'log-warn'); return; }
+  if (!confirmActionsEnabled) { confirmSwap(); return; }
+  showSwapConfirm();
+}
+
+function showSwapConfirm() {
+  const main = G.player.main, sub = G.player.sub;
+  const mainTheme = TYPE_THEMES[main.type] || TYPE_THEMES['A'];
+  const subTheme  = TYPE_THEMES[sub.type]  || TYPE_THEMES['A'];
+  document.getElementById('modal-title').textContent = `🔄 メイン⇔サブを交換しますか？`;
+  const getSwapImg = (m, theme) => {
+    let src = null;
+    if (m.evolved) src = (m.evolveEffect === 'nullify' && theme.imgEvolved2) ? theme.imgEvolved2 : theme.imgEvolved;
+    else src = theme.img;
+    return src ? `<img src="${src}" style="width:100px;height:100px;object-fit:contain;border-radius:6px">` : `<div style="font-size:2.5rem">${theme.emoji}</div>`;
+  };
+  const mainImg = getSwapImg(main, mainTheme);
+  const subImg  = getSwapImg(sub,  subTheme);
+  document.getElementById('modal-options').innerHTML = `
+    <div style="width:100%;display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px">
+      <div style="text-align:center">
+        <div>${mainImg}</div>
+        <div style="font-size:0.75rem;color:#aaa;margin-top:6px">メイン<br>${main.label}<br>HP ${main.hp}/${main.maxHP}</div>
+      </div>
+      <div style="font-size:1.4rem;color:#4080cc">⇔</div>
+      <div style="text-align:center">
+        <div>${subImg}</div>
+        <div style="font-size:0.75rem;color:#aaa;margin-top:6px">サブ<br>${sub.label}<br>HP ${sub.hp}/${sub.maxHP}</div>
+      </div>
+    </div>
+    <button class="modal-monster-btn" style="flex:1;background:linear-gradient(135deg,#083358,#1060a0);border-color:#4080cc;color:#aad0ff;font-size:1rem" onclick="confirmSwap()">はい</button>
+    <button class="modal-monster-btn" style="flex:1;background:#1a2030;border-color:#3a4060;color:#aaa;font-size:1rem" onclick="closeModal()">いいえ</button>
+  `;
+  document.getElementById('modal-cancel-btn').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function confirmSwap() {
+  closeModal();
+  [G.player.main, G.player.sub] = [G.player.sub, G.player.main];
+  G.swappedThisTurn = true;
+  G.attackBlocked = true;
+  addLog(`🔄 あなたがメイン⇔サブを交換（このターン攻撃不可）`, 'log-system');
+  if (G.mode === 'online') sendOnlineAction({ action: 'swap' });
+  render();
+}
+
+let _popupQueue   = [];
+let _popupBusy    = false;
+const POPUP_DURATION = 2000; // 表示時間（ms）
+
+function showCpuAction(icon, text, type, callback, subtext) {
+  _popupQueue.push({ icon, text, subtext, type, callback });
+  if (!_popupBusy) _processPopupQueue();
+}
+
+function _processPopupQueue() {
+  if (_popupQueue.length === 0) {
+    _popupBusy = false;
+    renderButtons();
+    return;
+  }
+  _popupBusy = true;
+  renderButtons();
+  const { icon, text, subtext, type, callback } = _popupQueue.shift();
+  // テキストなし＝キュードレイン用ダミー：即コールバック実行して次へ
+  if (!text) {
+    if (callback) callback();
+    _processPopupQueue();
+    return;
+  }
+  const popup = document.getElementById('cpu-action-popup');
+  const inner = document.getElementById('cpu-popup-inner');
+  document.getElementById('cpu-popup-icon').textContent = icon;
+  document.getElementById('cpu-popup-text').textContent = text;
+  const subEl = document.getElementById('cpu-popup-subtext');
+  if (subtext) { subEl.textContent = subtext; subEl.style.display = 'block'; }
+  else { subEl.style.display = 'none'; }
+  inner.className = 'cpu-popup-inner cpu-popup-type-' + type;
+  popup.className = '';
+  popup.style.display = 'block';
+  void popup.offsetWidth;
+  popup.classList.add('show');
+  setTimeout(() => {
+    popup.classList.add('hide');
+    setTimeout(() => {
+      popup.style.display = 'none';
+      popup.className = '';
+      if (callback) callback();
+      _processPopupQueue();
+    }, 250);
+  }, POPUP_DURATION);
+}
+
+function showTurnBanner(who, sub) {
+  const banner = document.getElementById('turn-banner');
+  const inner  = document.getElementById('turn-banner-inner');
+  const subEl  = document.getElementById('turn-banner-sub');
+  const onlineOpponent = G && G.mode === 'online' && who === 'cpu';
+  inner.textContent = who === 'player' ? 'あなたのターン' : (onlineOpponent ? '相手のターン' : 'CPUのターン');
+  inner.className   = 'turn-banner-inner ' + (who === 'player' ? 'player-turn' : 'cpu-turn');
+  subEl.textContent = sub || '';
+  banner.className  = '';
+  banner.style.display = 'block';
+  void banner.offsetWidth;
+  banner.classList.add('show');
+  setTimeout(() => {
+    banner.classList.add('hide');
+    setTimeout(() => { banner.style.display = 'none'; banner.className = ''; }, 300);
+  }, 1300);
+}
+
+function showActionBanner(text, color) {
+  const banner = document.getElementById('turn-banner');
+  const inner  = document.getElementById('turn-banner-inner');
+  const subEl  = document.getElementById('turn-banner-sub');
+  inner.textContent = text;
+  inner.className   = 'turn-banner-inner cpu-turn';
+  inner.style.color = color || '#ffcc44';
+  subEl.textContent = '';
+  banner.className  = '';
+  banner.style.display = 'block';
+  void banner.offsetWidth;
+  banner.classList.add('show');
+  setTimeout(() => {
+    banner.classList.add('hide');
+    setTimeout(() => {
+      banner.style.display = 'none';
+      banner.className = '';
+      inner.style.color = '';
+    }, 300);
+  }, 1000);
+}
+
+function showEvolveToast(m) {
+  const theme = TYPE_THEMES[m.type] || TYPE_THEMES['A'];
+  const toast = document.getElementById('evolve-toast');
+  document.getElementById('evolve-toast-title').textContent = `✨ ${m.label}`;
+  document.getElementById('evolve-toast-label').textContent = `に進化！`;
+  const defEntry = EVOLVE_DEFS[m.type] || Object.values(EVOLVE_DEFS).find(d => d.evolvedLabel === m.label);
+  document.getElementById('evolve-toast-sub').textContent = defEntry ? defEntry.effectDesc : '';
+  const img = document.getElementById('evolve-toast-img');
+  const imgSrc = (m.evolveEffect === 'nullify' && theme.imgEvolved2) ? theme.imgEvolved2
+               : theme.imgEvolved ? theme.imgEvolved : null;
+  if (imgSrc) { img.src = imgSrc; img.style.display = 'block'; }
+  else { img.style.display = 'none'; }
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ===================================================
+// D進化スキル（プレイヤー）
+// ===================================================
+function playerDHeal() {
+  const hasMain = G.player.main && G.player.main.evolveEffect === 'd_heal' && G.player.main.dHealAvailable;
+  const hasSub  = G.player.sub  && G.player.sub.evolveEffect  === 'd_heal' && G.player.sub.dHealAvailable;
+  if (!hasMain && !hasSub) return;
+
+  const modal = document.getElementById('modal-overlay');
+  document.getElementById('modal-title').textContent = `D進化スキル：どちらを${EVOLVE_D_HEAL}回復？`;
+
+  const opts = document.getElementById('modal-options');
+  let html = `<button class="modal-monster-btn" onclick="applyDHeal('main')">
+    メイン: ${G.player.main.type}（HP: ${G.player.main.hp}/${G.player.main.maxHP}）
+  </button>`;
+  if (G.player.sub) {
+    html += `<button class="modal-monster-btn" onclick="applyDHeal('sub')">
+      サブ: ${G.player.sub.type}（HP: ${G.player.sub.hp}/${G.player.sub.maxHP}）
+    </button>`;
+  }
+  opts.innerHTML = html;
+  document.getElementById('modal-cancel-btn').style.display = 'inline-block';
+  modal.classList.add('show');
+}
+
+function applyDHeal(target) {
+  closeModal();
+  showFX('evolved-ability');
+  const m = target === 'main' ? G.player.main : G.player.sub;
+  if (!m) return;
+  const before = m.hp;
+  m.hp = clamp(m.hp + EVOLVE_D_HEAL, 0, m.maxHP);
+  if (G.player.main && G.player.main.evolveEffect === 'd_heal') G.player.main.dHealAvailable = false;
+  if (G.player.sub  && G.player.sub.evolveEffect  === 'd_heal') G.player.sub.dHealAvailable  = false;
+  addLog(`💧 あなたのD進化スキル：${m.type}（${target === 'main' ? 'メイン' : 'サブ'}）を+${m.hp - before}回復（${m.hp}/${m.maxHP}）`, 'log-heal');
+  if (G.mode === 'online') sendOnlineAction({ action: 'd_heal', slot: target });
+  render();
+}
+
+// ===================================================
+// MONSTER DETAIL MODAL
+// ===================================================
+function showMonsterDetail(who, slot) {
+  let m;
+  if (slot === 'main') m = G[who].main;
+  else if (slot === 'sub') m = G[who].sub;
+  else m = G[who].monsterDeck[0];
+  if (!m) return;
+
+  const def = MONSTER_DEFS.find(d => d.type === m.type);
+  // ゼウス系はDEFS['Z']が存在しないため状態から解決
+  let evKey = m.type;
+  if (!EVOLVE_DEFS[evKey]) {
+    evKey = (m.evolveEffect === 'zeus_lazy') ? 'Z_almighty' : 'Z_lazy';
+  }
+  const ev  = EVOLVE_DEFS[evKey];
+  const isEvolved = m.evolved;
+
+  document.getElementById('detail-title').textContent = m.label;
+  document.getElementById('detail-category').textContent = `${m.category || ''}　／　${who === 'player' ? 'あなたの' : 'CPUの'}${slot === 'main' ? 'メイン' : slot === 'sub' ? 'サブ' : '次のモンスター'}`;
+
+  const theme = TYPE_THEMES[m.type] || TYPE_THEMES['A'];
+
+  // 怠け者ゼウス：進化前列に現在の姿（怠け者）を表示、進化後に全能神を表示
+  const isZeusLazy = isEvolved && m.evolveEffect === 'zeus_lazy';
+  const preCurrent = !isEvolved || isZeusLazy;
+  const preRatio   = preCurrent ? (m.hp / m.maxHP) : 1;
+  const imgStyle = 'width:140px;height:140px;object-fit:contain;display:block;margin:0 auto';
+  const preImgSrc = isZeusLazy ? theme.imgEvolved : theme.img;
+  const preLabel  = isZeusLazy ? m.label : def.label;
+  const preImg = preImgSrc
+    ? `<img src="${preImgSrc}" style="${imgStyle}">`
+    : `<div style="font-size:3rem;text-align:center;line-height:140px">${theme.emoji}</div>`;
+  const preCol = `
+    <div class="detail-col ${preCurrent ? 'current-state' : ''}">
+      <div class="detail-col-label">進化前${preCurrent ? '<span class="detail-now-badge">現在</span>' : ''}</div>
+      <div style="height:140px;display:flex;align-items:center;justify-content:center;margin-bottom:6px">${preImg}</div>
+      <div class="detail-col-name">${preLabel}</div>
+      ${preCurrent ? `
+        <div class="detail-hp-bar-wrap"><div class="detail-hp-bar" style="width:${Math.max(0,preRatio*100)}%;background:${hpColor(m.hp,m.maxHP)}"></div></div>
+        <div class="detail-col-stat detail-hp-stat">HP: ${m.hp}/${m.maxHP}</div>
+      ` : `
+        <div class="detail-col-stat detail-hp-stat">HP: ${def.maxHP}</div>
+      `}
+    </div>`;
+
+  const postCurrent = isEvolved && !isZeusLazy;
+  const postRatio   = postCurrent ? (m.hp / m.maxHP) : 1;
+  const postImgSrc = (m.evolveEffect === 'zeus_lazy' && theme.imgEvolved2) ? theme.imgEvolved2
+                   : theme.imgEvolved ? theme.imgEvolved : null;
+  const postImg = postImgSrc
+    ? `<img src="${postImgSrc}" style="${imgStyle}">`
+    : `<div style="font-size:3rem;text-align:center;line-height:140px">✨</div>`;
+  const postCol = `
+    <div class="detail-col evolved-col ${postCurrent ? 'current-state' : ''}">
+      <div class="detail-col-label">進化後${postCurrent ? '<span class="detail-now-badge evolved-now">現在</span>' : ''}</div>
+      <div style="height:140px;display:flex;align-items:center;justify-content:center;margin-bottom:6px">${postImg}</div>
+      <div class="detail-col-name">${ev.evolvedLabel}</div>
+      ${postCurrent ? `
+        <div class="detail-hp-bar-wrap"><div class="detail-hp-bar" style="width:${Math.max(0,postRatio*100)}%;background:${hpColor(m.hp,m.maxHP)}"></div></div>
+        <div class="detail-col-stat detail-hp-stat">HP: ${m.hp}/${m.maxHP}</div>
+      ` : `
+        <div class="detail-col-stat detail-hp-stat">HP: ${ev.maxHP}</div>
+      `}
+    </div>`;
+
+  document.getElementById('detail-cols').innerHTML = preCol + postCol;
+
+  let effectText = ev.effectDesc;
+  if (isEvolved) {
+    if (m.evolveEffect === 'endure') effectText += m.endureAvailable ? '（耐え: 残1回）' : '（耐え: 使用済）';
+    if (m.evolveEffect === 'd_heal') effectText += m.dHealAvailable ? `（回復スキル: 残1回）` : '（回復スキル: 使用済）';
+  }
+  document.getElementById('detail-effect').innerHTML = `<span>進化効果：</span>${effectText}`;
+  document.getElementById('detail-overlay').classList.add('show');
+}
+
+function closeDetailModal() {
+  document.getElementById('detail-overlay').classList.remove('show');
+}
+
+// ===================================================
+// MODAL HELPERS
+// ===================================================
+function showMonsterSelectModal(who, afterCallback) {
+  const deck = G[who].monsterDeck;
+  if (deck.length === 0) {
+    addLog('モンスターデッキに残りがありません', 'log-system');
+    G.abilityUsed = true;
+    selectedCardIdx = null;
+    render();
+    return;
+  }
+  const modal = document.getElementById('modal-overlay');
+  document.getElementById('modal-title').textContent = '次に出すモンスターを選択';
+  const opts = document.getElementById('modal-options');
+  opts.innerHTML = deck.map((m, i) =>
+    `<button class="modal-monster-btn" onclick="selectMonsterFromDeck(${i},'${who}')">
+      ${m.label}${m.evolved ? ' ★進化済' : ''}（HP:${m.maxHP} ATK:${m.atk}）
+    </button>`
+  ).join('');
+  document.getElementById('modal-cancel-btn').style.display = 'inline-block';
+  modal.classList.add('show');
+  window._monsterSelectCallback = afterCallback;
+}
+
+function selectMonsterFromDeck(idx, who) {
+  const deck = G[who].monsterDeck;
+  const chosen = deck.splice(idx, 1)[0];
+  deck.unshift(chosen);
+  addLog(`あなたが「モンスター指定」：次は${chosen.label}${chosen.evolved ? '（進化済）' : ''}を指定`, '');
+  if (who === 'player' && G.mode === 'online') {
+    sendOnlineAction({ action: 'use_card', cardId: 'monster_select', selectedType: chosen.type });
+  }
+  closeModal();
+  G.abilityUsed = true;
+  selectedCardIdx = null;
+  render();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+// ===================================================
+// COMBAT
+// ===================================================
+function checkMonsterDestroyed(victimWho, attackerWho) {
+  if (G.gameOver) return;
+  const victim = G[victimWho];
+  if (!victim.main || victim.main.hp > 0) return;
+
+  // 不死：神カテゴリのメインが致死ダメージを1度無効
+  if (victim.fushiActive && victim.main.category === '神') {
+    victim.main.hp = 1;
+    victim.fushiActive = false;
+    addLog(`✨ ${victimWho === 'player' ? 'あなたの' : 'CPUの'}${victim.main.label || victim.main.type}が不死の力で踏みとどまった！（残HP: 1）`, 'log-evolve');
+    return;
+  }
+
+  if (victim.main.evolveEffect === 'endure' && victim.main.endureAvailable) {
+    victim.main.hp = 1;
+    victim.main.endureAvailable = false;
+    addLog(`🛡 ${victimWho === 'player' ? 'あなたの' : 'CPUの'}${victim.main.type}（進化）が耐えた！（残HP: 1）`, 'log-evolve');
+    return;
+  }
+
+  const destroyedType = victim.main.type;
+  G[attackerWho].destroyedCount++;
+  addLog(`💀 ${victimWho === 'player' ? 'あなたの' : 'CPUの'}${destroyedType}が破壊！（${attackerWho === 'player' ? 'あなた' : 'CPU'}の破壊数: ${G[attackerWho].destroyedCount}）`, 'log-damage');
+
+  victim.main = victim.sub;
+  victim.sub  = victim.monsterDeck.length > 0 ? victim.monsterDeck.shift() : null;
+
+  if (victim.main) addLog(`  → ${victimWho === 'player' ? 'あなたの' : 'CPUの'}${victim.main.type}${victim.main.evolved ? '（進化）' : ''}がメインに昇格`, 'log-system');
+  if (victim.sub)  addLog(`  → ${victimWho === 'player' ? 'あなたの' : 'CPUの'}${victim.sub.type}がサブに補充`, 'log-system');
+
+  if (G[attackerWho].destroyedCount >= 3) {
+    endGame(attackerWho, '3体破壊達成！');
+    return;
+  }
+
+  // 怠け者ゼウス超進化チェック（破壊カウント更新後に両プレイヤー分チェック）
+  checkZeusAscension('player');
+  checkZeusAscension('cpu');
+}
+
+function checkZeusAscension(who) {
+  if (G.gameOver) return;
+  const p   = G[who];
+  const opp = G[who === 'player' ? 'cpu' : 'player'];
+  if (opp.destroyedCount < 2) return; // 相手がまだ2ポイント未達
+  [p.main, p.sub].forEach(m => {
+    if (!m || m.evolveEffect !== 'zeus_lazy') return;
+    // 超進化！
+    const ev = EVOLVE_DEFS['Z_almighty'];
+    const hpGain = ev.maxHP - EVOLVE_DEFS['Z_lazy'].maxHP; // 90-70=20
+    m.hp       = Math.min(m.hp + hpGain, ev.maxHP);
+    m.maxHP    = ev.maxHP;
+    m.atk      = ev.atk;
+    m.evolveEffect = ev.effect; // 'nullify'
+    m.label    = ev.evolvedLabel;
+    const pos  = (m === p.main) ? 'メイン' : 'サブ';
+    addLog(`⚡ ${who === 'player' ? 'あなたの' : 'CPUの'}怠け者ゼウスが全能神ゼウスに超進化！（${pos}）HP:${m.hp}/${m.maxHP} ATK:${m.atk}`, 'log-evolve');
+    showFX('zeus_ascend');
+    showEvolveToast(m);
+    // フィールド背景を超進化画像に差し替え（暗転中に切り替え）
+    setTimeout(() => {
+      const areaId = who === 'player' ? 'player-area' : 'enemy-area';
+      const dim = who === 'player' ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.1)';
+      document.getElementById(areaId).style.background =
+        `linear-gradient(${dim}, ${dim}), url('images/bg/zennnousinsinnka.PNG') center/cover no-repeat`;
+    }, 300);
+  });
+}
+
+function playerAttack() {
+  if (_popupBusy) return;
+  if (G.activePlayer !== 'player' || G.gameOver) return;
+  if (G.attacksThisTurn >= 2) return; // 絶対上限
+  const evolvedCMain = G.player.main && G.player.main.evolveEffect === 'double_attack';
+  if (evolvedCMain) {
+    if (G.abilityUsed || G.attacksThisTurn >= 2) return;
+  } else {
+    if (G.attacksThisTurn >= G.maxAttacksThisTurn) return;
+  }
+  if (confirmActionsEnabled) { showAttackConfirm(); return; }
+  doPlayerAttack();
+}
+
+function showAttackConfirm() {
+  const atk = G.player.main ? G.player.main.atk : '?';
+  const targetLabel = G.cpu.main ? G.cpu.main.label : '?';
+  const targetHP    = G.cpu.main ? `HP ${G.cpu.main.hp}/${G.cpu.main.maxHP}` : '';
+  const targetTheme = G.cpu.main ? (TYPE_THEMES[G.cpu.main.type] || TYPE_THEMES['A']) : null;
+  const targetImgSrc = targetTheme
+    ? (G.cpu.main.evolved
+        ? ((G.cpu.main.evolveEffect === 'nullify' && targetTheme.imgEvolved2) ? targetTheme.imgEvolved2 : targetTheme.imgEvolved)
+        : targetTheme.img)
+    : null;
+  const targetImg = targetImgSrc
+    ? `<img src="${targetImgSrc}" style="width:120px;height:120px;object-fit:contain;border-radius:8px">`
+    : (targetTheme ? `<div style="font-size:3rem">${targetTheme.emoji}</div>` : '');
+  document.getElementById('modal-title').textContent = `⚔️ 攻撃しますか？`;
+  document.getElementById('modal-options').innerHTML = `
+    <div style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px">
+      <div style="text-align:center">
+        <div>${targetImg}</div>
+        <div style="font-size:0.75rem;color:#aaa;margin-top:6px">${targetLabel}<br>${targetHP}</div>
+      </div>
+      <div style="font-size:0.9rem;color:#ff6060">ATK ${atk} ダメージ</div>
+    </div>
+    <button class="modal-monster-btn" style="flex:1;background:linear-gradient(135deg,#5a1010,#b02020);border-color:#ff6060;color:#ffd0d0;font-size:1rem" onclick="confirmAttack()">攻撃！</button>
+    <button class="modal-monster-btn" style="flex:1;background:#1a2030;border-color:#3a4060;color:#aaa;font-size:1rem" onclick="closeModal()">いいえ</button>
+  `;
+  document.getElementById('modal-cancel-btn').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function confirmAttack() {
+  closeModal();
+  doPlayerAttack();
+}
+
+function doPlayerAttack() {
+  // 二重タップ・連打防止（confirmAttackが複数キューされた場合の保護）
+  const evolvedCMain = G.player.main && G.player.main.evolveEffect === 'double_attack';
+  if (evolvedCMain) {
+    if (G.abilityUsed || G.attacksThisTurn >= 2) return;
+  } else {
+    if (G.attacksThisTurn >= G.maxAttacksThisTurn) return;
+  }
+  doAttack('player');
+  if (G.player.main && G.player.main.evolveEffect === 'double_attack') selectedCardIdx = null;
+  if (G.mode === 'online') sendOnlineAction({ action: 'attack' });
+  render();
+  if (!G.gameOver) showAttackFX('cpu');
+}
+
+function showAttackFX(targetWho) {
+  const fieldId = targetWho === 'cpu' ? 'cpu-field' : 'player-field';
+  const field = document.getElementById(fieldId);
+  if (!field) return;
+  const mainCard = field.querySelector('.main-battle-card');
+  if (!mainCard) return;
+  mainCard.classList.add('card-shake');
+  const hit = document.createElement('div');
+  hit.className = 'card-hit-fx';
+  hit.textContent = '💥';
+  mainCard.appendChild(hit);
+  setTimeout(() => { mainCard.classList.remove('card-shake'); hit.remove(); }, 600);
+}
+
+// ===================================================
+// 全能神ゼウス：無効化選択ダイアログ
+// ===================================================
+function showNullifyDialog(callback) {
+  document.getElementById('modal-title').textContent = `⚡ 全能神ゼウス：無効化する行動を選択`;
+  const opts = document.getElementById('modal-options');
+  const actions = [
+    { key: 'attack',  label: '⚔️ 攻撃',     desc: '相手の攻撃を1回無効化' },
+    { key: 'evolve',  label: '✨ 進化',     desc: '相手のサブ進化を無効化' },
+    { key: 'swap',    label: '🔄 交換',     desc: '相手のメイン⇔サブ交換を無効化' },
+    { key: 'ability', label: '🃏 能力カード', desc: '相手の能力カード使用を無効化' },
+  ];
+  opts.innerHTML = actions.map(a => `
+    <button class="modal-monster-btn" style="flex:1;background:linear-gradient(135deg,#302008,#604000);border-color:#ffd000;color:#ffe080;font-size:0.85rem;text-align:left;padding:8px"
+      onclick="selectNullify('${a.key}')">
+      <div>${a.label}</div>
+      <div style="font-size:0.7rem;color:#c09030;margin-top:2px">${a.desc}</div>
+    </button>
+  `).join('');
+  document.getElementById('modal-cancel-btn').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('show');
+  window._nullifyCallback = callback;
+}
+
+function selectNullify(key) {
+  closeModal();
+  G.nullifyChosen = key;
+  addLog(`⚡ 全能神ゼウス：「${key === 'attack' ? '攻撃' : key === 'evolve' ? '進化' : key === 'swap' ? '交換' : '能力カード'}」を無効化！`, 'log-evolve');
+  if (window._nullifyCallback) window._nullifyCallback();
+}
+
+function doAttack(who) {
+  if (G.gameOver) return;
+  const self = G[who];
+  const opp  = G[who === 'player' ? 'cpu' : 'player'];
+  if (!self.main || !opp.main) return;
+
+  // 全能神ゼウスの攻撃無効チェック（mainのみ）
+  if (G.nullifyChosen === 'attack' && hasAlmightyZeusMain(who === 'player' ? 'cpu' : 'player')) {
+    addLog(`⚡ 全能神ゼウスが攻撃を無効化！`, 'log-evolve');
+    G.nullifyChosen = null;
+    G.attacksThisTurn++;
+    if (who === 'player') G.hasAttacked = true;
+    return;
+  }
+
+  const aresBonus = self.main.evolveEffect === 'ares_bonus' ? ARES_BONUS : 0;
+  const dmg = self.main.atk + aresBonus;
+  if (opp.shielded) {
+    opp.shielded = false;
+    addLog(`🛡️ ${who === 'player' ? 'CPUの' : 'あなたの'}シールド発動！攻撃を無効化！`, 'log-evolve');
+    if (who === 'player') {
+      G.attacksThisTurn++;
+      const evolvedCMain = self.main && self.main.evolveEffect === 'double_attack';
+      if (!evolvedCMain) G.hasAttacked = G.attacksThisTurn >= G.maxAttacksThisTurn;
+    } else {
+      G.hasAttacked = true;
+    }
+    return;
+  }
+  opp.main.hp = clamp(opp.main.hp - dmg, 0, opp.main.maxHP);
+  if (aresBonus > 0) showCpuAction('⚔️', `軍神の力！ATK+${aresBonus}`, 'attack', null);
+  const dmgLabel = aresBonus > 0 ? `${dmg}（ATK${self.main.atk}+ボーナス${aresBonus}）` : `${dmg}`;
+  addLog(`⚔ ${who === 'player' ? 'あなたの' : 'CPUの'}${self.main.type}(ATK:${dmgLabel}) → ${who === 'player' ? 'CPUの' : 'あなたの'}${opp.main.type}に${dmg}ダメージ（残HP: ${opp.main.hp}）`, 'log-damage');
+
+  if (opp.main && opp.main.evolveEffect === 'reflect') {
+    const ref = Math.floor(dmg / 2);
+    self.main.hp = clamp(self.main.hp - ref, 0, self.main.maxHP);
+    addLog(`⚡ ${who === 'player' ? 'CPUの' : 'あなたの'}${opp.main.type}（E進化）が${ref}ダメージを反射！（${self.main.type}残HP: ${self.main.hp}）`, 'log-damage');
+    checkMonsterDestroyed(who, who === 'player' ? 'cpu' : 'player');
+    if (G.gameOver) return;
+  }
+
+  checkMonsterDestroyed(who === 'player' ? 'cpu' : 'player', who);
+
+  if (who === 'player') {
+    G.attacksThisTurn++;
+    const evolvedCMain = self.main && self.main.evolveEffect === 'double_attack';
+    if (!evolvedCMain) {
+      G.hasAttacked = G.attacksThisTurn >= G.maxAttacksThisTurn;
+    }
+  } else {
+    const evolvedCCPU = self.main && self.main.evolveEffect === 'double_attack';
+    if (!evolvedCCPU) {
+      G.hasAttacked = true;
+    }
+  }
+}
+
+function applyWaveDamage(who) {
+  if (G.gameOver) return;
+  const self = G[who];
+  if (!self.main || self.main.evolveEffect !== 'wave') return;
+  const opp = G[who === 'player' ? 'cpu' : 'player'];
+  if (!opp.main) return;
+  opp.main.hp = clamp(opp.main.hp - WAVE_DMG, 0, opp.main.maxHP);
+  addLog(`🌊 ${who === 'player' ? 'あなたの' : 'CPUの'}波涛：${opp.main.label || opp.main.type}に${WAVE_DMG}ダメージ（残HP: ${opp.main.hp}）`, 'log-damage');
+  // ポップアップ＆エフェクト
+  showFX('wave');
+  showCpuAction('🌊', `波涛ダメージ！−${WAVE_DMG}`, 'wave', null);
+  const waveTargetFieldId = who === 'player' ? 'cpu-field' : 'player-field';
+  setTimeout(() => {
+    const waveCard = document.getElementById(waveTargetFieldId)?.querySelector('.main-battle-card');
+    if (waveCard) { waveCard.classList.add('card-shake'); setTimeout(() => waveCard.classList.remove('card-shake'), 600); }
+  }, 50);
+  checkMonsterDestroyed(who === 'player' ? 'cpu' : 'player', who);
+}
+
+function playerEndTurn() {
+  if (_popupBusy) return;
+  if (G.activePlayer !== 'player' || G.gameOver) return;
+  const evolvedCMain = G.player.main && G.player.main.evolveEffect === 'double_attack';
+  if (evolvedCMain && G.attacksThisTurn === 1 && !G.abilityUsed) {
+    addLog('⚠️ C進化：1回のみ攻撃は不可！もう1回攻撃してください。（または攻撃を0回でターン終了）', 'log-warn');
+    return;
+  }
+  G.extraAttack = false;
+  endPlayerTurn();
+}
+
+function endPlayerTurn() {
+  // 波涛ダメージ（プレイヤーメインがwave効果を持つ場合）
+  applyWaveDamage('player');
+  if (G.gameOver) { render(); return; }
+
+  if (G.mode === 'online') {
+    // オンラインモード：相手にend_turnを送り、相手のターンへ
+    drawAbility('player'); // 自分がカードドロー
+    sendOnlineAction({ action: 'end_turn' });
+    G.hasAttacked = false; G.abilityUsed = false; G.extraAttack = false;
+    G.attacksThisTurn = 0; G.maxAttacksThisTurn = 1;
+    G.evolvedThisTurn = false; G.swappedThisTurn = false; G.attackBlocked = false;
+    G.myTurn = false;
+    G.activePlayer = 'cpu';
+    G.phase = 'ability';
+    addLog('--- 相手のターン ---', 'log-system');
+    render();
+    return;
+  }
+
+  // ソロモード（CPU）
+  G.hasAttacked = false;
+  G.abilityUsed = false;
+  G.extraAttack = false;
+  G.attacksThisTurn = 0;
+  G.maxAttacksThisTurn = 1;
+  G.evolvedThisTurn = false;
+  G.swappedThisTurn = false;
+  G.attackBlocked = false;
+  G.nullifyChosen = null;
+  G.player.fushiActive = false; // 不死リセット
+  G.activePlayer = 'cpu';
+  G.phase = 'ability';
+  G.turn++;
+  addLog('--- CPUのターン ---', 'log-system');
+
+  ['btn-attack','btn-end'].forEach(id => document.getElementById(id).disabled = true);
+  document.getElementById('cpu-thinking').style.display = 'inline-block';
+  render();
+  showTurnBanner('cpu', `ラウンド ${Math.ceil(G.turn / 2)}`);
+
+  drawAbilityAtTurnStart('cpu');
+
+  // 全能神ゼウスがプレイヤーのmainにいる → CPUターン開始前に無効化選択ダイアログ
+  if (hasAlmightyZeusMain('player')) {
+    setTimeout(() => {
+      showNullifyDialog(() => {
+        setTimeout(() => cpuAct(), 400);
+      });
+    }, 900);
+  } else {
+    setTimeout(() => cpuAct(), 800);
+  }
+}
+
+// ===================================================
+// CPU AI
+// ===================================================
+function cpuAct() {
+  if (G.gameOver) return;
+  const cpu = G.cpu;
+  const hand = cpu.hand;
+  const mainHPRatio = cpu.main ? cpu.main.hp / cpu.main.maxHP : 1;
+  const evolvedCCPU = cpu.main && cpu.main.evolveEffect === 'double_attack';
+
+  // ===== 難易度別行動決定 =====
+  const diff = cpuDifficulty;
+  const mainRatio = cpu.main ? cpu.main.hp / cpu.main.maxHP : 1;
+  const subRatio  = cpu.sub  ? cpu.sub.hp  / cpu.sub.maxHP  : 0;
+
+  // 進化判断
+  let willEvolve = false;
+  let cpuEvolveKey = null;
+  if (!G.evolvedThisTurn && cpu.sub && !cpu.sub.evolved && G.cpu.evolvedTotal < 2) {
+    if (cpu.sub.type === 'Z') {
+      // 常に怠け者ゼウスに進化（超進化はcheckZeusAscensionが自動処理）
+      cpuEvolveKey = 'Z_lazy';
+      willEvolve = true;
+    } else {
+      if (cpuMode === 'god') {
+        // ゼウスが生きてる間は進化枠を1つ確保（全能神用）
+        const zeusAlive = [cpu.main, cpu.sub, ...cpu.monsterDeck].some(m => m && m.type === 'Z');
+        const nonZeusLimit = zeusAlive ? 1 : 2;
+        willEvolve = G.cpu.evolvedTotal < nonZeusLimit && mainRatio > 0.4;
+      } else {
+        if (diff === 'easy')   willEvolve = Math.random() < 0.3;
+        if (diff === 'normal') willEvolve = true;
+        if (diff === 'hard')   willEvolve = mainRatio > 0.4;
+      }
+    }
+  }
+
+  // 交換判断
+  let willSwap = false;
+  if (!G.swappedThisTurn && cpu.sub) {
+    if (diff === 'easy')   willSwap = mainRatio < 0.2 && Math.random() < 0.4; // HP極低でも低確率
+    if (diff === 'normal') willSwap = mainRatio < 0.35 && subRatio > mainRatio + 0.2;
+    if (diff === 'hard')   willSwap = mainRatio < 0.45 && subRatio > mainRatio + 0.15; // 早めに交換
+  }
+
+  const willDHeal = cpu.main && cpu.main.evolveEffect === 'd_heal' && cpu.main.dHealAvailable && mainHPRatio < 0.5;
+
+  // 能力カード選択
+  const attackWillBeBlocked = willSwap || willEvolve; // 進化・交換時は攻撃できないので追加攻撃カードを使わない
+  const mainNeedsHeal = cpu.main && cpu.main.hp < cpu.main.maxHP; // HP満タン時は回復しない
+  // 封印されていないカードのみ選択可能
+  const findCard = (id) => hand.findIndex((c, i) => c === id && !cpu.sealedIndices.has(i));
+  const hasCard  = (id) => findCard(id) >= 0;
+  let playIdx = -1;
+
+  if (cpuMode === 'god') {
+    // ===== 神デッキ専用AI =====
+    const aresIsMain    = cpu.main && cpu.main.evolveEffect === 'ares_bonus';
+    const hestiaIsMain  = cpu.main && cpu.main.evolveEffect === 'regen';
+    // アレス/ヘスティアが進化済みかどうか（メイン or サブに存在）
+    const aresEvolved   = aresIsMain || (cpu.sub && cpu.sub.evolveEffect === 'ares_bonus');
+    const hestiaEvolved = hestiaIsMain || (cpu.sub && cpu.sub.evolveEffect === 'regen');
+    const oppMain = G.player.main;
+    const oppHPRatio = oppMain ? oppMain.hp / oppMain.maxHP : 1;
+
+    // シールド：HP半分以下で積極的に張る
+    if (!evolvedCCPU && hasCard('shield') && mainHPRatio < 0.5 && Math.random() < 0.8) {
+      playIdx = findCard('shield');
+    }
+    // 回復：ヘスティア進化済みならヘスティアがメインの時のみ使う。未進化なら通常使用
+    if (playIdx < 0 && mainHPRatio < 0.5 && !evolvedCCPU && !willSwap && mainNeedsHeal) {
+      if (!hestiaEvolved || hestiaIsMain) {
+        let hi = findCard('heal_main');
+        if (hi >= 0) playIdx = hi;
+        if (playIdx < 0) { hi = findCard('heal_all'); if (hi >= 0) playIdx = hi; }
+      }
+    }
+    // direct_damage：相手HPが低い時に止めを刺す
+    if (playIdx < 0 && !evolvedCCPU && oppHPRatio < 0.65 && hasCard('direct_damage')) {
+      playIdx = findCard('direct_damage');
+    }
+    // extra_attack：アレス進化済みならアレスがメインの時のみ使う。未進化なら通常使用
+    if (playIdx < 0 && !evolvedCCPU && !attackWillBeBlocked) {
+      if (!aresEvolved || aresIsMain) {
+        const ei = findCard('extra_attack');
+        if (ei >= 0) playIdx = ei;
+      }
+    }
+    // 不死：神メインのHPが低い時に使う
+    if (playIdx < 0 && cpu.main && cpu.main.category === '神' && mainHPRatio < 0.35 && !cpu.fushiActive && hasCard('fushi')) {
+      playIdx = findCard('fushi');
+    }
+    // fuuin：相手手札が多い時に封印
+    if (playIdx < 0 && !evolvedCCPU && G.player.hand.length >= 3 && hasCard('fuuin') && Math.random() < 0.6) {
+      playIdx = findCard('fuuin');
+    }
+    // kaishuu：手札が少なく捨て札がある時
+    if (playIdx < 0 && cpu.discardPile.length > 0 && hand.length <= 2 && hasCard('kaishuu')) {
+      playIdx = findCard('kaishuu');
+    }
+    // swap_enemy：相手のメインHPが高く、サブが弱い状況で揺さぶる
+    if (playIdx < 0 && !evolvedCCPU && hasCard('swap_enemy') && Math.random() < 0.5) {
+      playIdx = findCard('swap_enemy');
+    }
+    // direct_damage残り
+    if (playIdx < 0 && !evolvedCCPU) {
+      const di = findCard('direct_damage');
+      if (di >= 0) playIdx = di;
+    }
+  } else if (diff === 'easy') {
+    // 弱い：30%でランダムに使う（extra_attackは攻撃できない時は除外、封印も除外）
+    if (Math.random() < 0.3) {
+      const valid = hand.map((c, i) => ({ c, i }))
+        .filter(({ c, i }) => !ABILITY_DEFS[c].disabled && !cpu.sealedIndices.has(i) && (!attackWillBeBlocked || c !== 'extra_attack'));
+      if (valid.length > 0) playIdx = valid[Math.floor(Math.random() * valid.length)].i;
+    }
+  } else if (diff === 'normal') {
+    if (mainHPRatio < 0.35 && !evolvedCCPU && !willSwap && mainNeedsHeal) {
+      let hi = findCard('heal_main');
+      if (hi >= 0) playIdx = hi;
+      if (playIdx < 0) { hi = findCard('heal_all'); if (hi >= 0) playIdx = hi; }
+    }
+    if (playIdx < 0 && !evolvedCCPU) {
+      const di = findCard('direct_damage');
+      if (di >= 0) playIdx = di;
+    }
+    if (playIdx < 0 && !evolvedCCPU && Math.random() < 0.45) {
+      const valid = hand.map((c, i) => ({ c, i }))
+        .filter(({ c, i }) => !ABILITY_DEFS[c].disabled && !cpu.sealedIndices.has(i) && (!attackWillBeBlocked || c !== 'extra_attack'));
+      if (valid.length > 0) playIdx = valid[Math.floor(Math.random() * valid.length)].i;
+    }
+  } else { // hard
+    // 強い：HP管理優先、シールド活用、direct_damage積極使用
+    const oppMain = G.player.main;
+    const oppHPRatio = oppMain ? oppMain.hp / oppMain.maxHP : 1;
+    // シールドを相手の攻撃前に張る
+    if (!evolvedCCPU && hasCard('shield') && mainHPRatio < 0.5 && Math.random() < 0.7) {
+      playIdx = findCard('shield');
+    }
+    if (playIdx < 0 && mainHPRatio < 0.5 && !evolvedCCPU && !willSwap && mainNeedsHeal) {
+      let hi = findCard('heal_main');
+      if (hi >= 0) playIdx = hi;
+      if (playIdx < 0) { hi = findCard('heal_all'); if (hi >= 0) playIdx = hi; }
+    }
+    if (playIdx < 0 && !evolvedCCPU) {
+      // 相手HPが低ければdirect_damageで止め
+      if (oppHPRatio < 0.6 && hasCard('direct_damage')) playIdx = findCard('direct_damage');
+    }
+    if (playIdx < 0 && !evolvedCCPU) {
+      const di = findCard('direct_damage');
+      if (di >= 0) playIdx = di;
+    }
+    // 不死：神メインのHPが低い時に使う
+    if (playIdx < 0 && cpu.main && cpu.main.category === '神' && mainHPRatio < 0.35 && !cpu.fushiActive && hasCard('fushi')) {
+      playIdx = findCard('fushi');
+    }
+    // fuuin：相手手札が多い時
+    if (playIdx < 0 && !evolvedCCPU && G.player.hand.length >= 3 && hasCard('fuuin') && Math.random() < 0.5) {
+      playIdx = findCard('fuuin');
+    }
+    // kaishuu：手札が少なく捨て札がある時
+    if (playIdx < 0 && cpu.discardPile.length > 0 && hand.length <= 2 && hasCard('kaishuu')) {
+      playIdx = findCard('kaishuu');
+    }
+    if (playIdx < 0 && !evolvedCCPU && Math.random() < 0.7) {
+      // extra_attackは攻撃できない（進化・交換済み）場合は除外
+      const priority = ['extra_attack', 'direct_damage', 'swap_enemy', 'fuuin', 'heal_main', 'heal_all']
+        .filter(c => !attackWillBeBlocked || c !== 'extra_attack');
+      for (const p of priority) {
+        const i = findCard(p);
+        if (i >= 0) { playIdx = i; break; }
+      }
+    }
+  }
+
+  // ===== 順番実行ステップを構築 =====
+  const steps = [];
+
+  // ① 進化
+  if (willEvolve) {
+    steps.push(next => {
+      const prevType = cpu.sub.type;
+      // nullify無効化チェック（進化）
+      if (G.nullifyChosen === 'evolve' && hasAlmightyZeusMain('player')) {
+        addLog(`⚡ 全能神ゼウスがCPUの進化を無効化！`, 'log-evolve');
+        G.nullifyChosen = null;
+        G.evolvedThisTurn = true; G.attackBlocked = true;
+        render(); next(); return;
+      }
+      showCpuAction('✨', `CPUのサブが進化する！`, 'evolve', () => {
+        if (G.gameOver) { next(); return; }
+        evolveMonster(cpu.sub, cpuEvolveKey);
+        G.evolvedThisTurn = true;
+        G.attackBlocked = true;
+        G.cpu.evolvedTotal++;
+        const usedKey = cpuEvolveKey || prevType;
+        addLog(`✨ CPUの${prevType}（サブ）が進化！→ ${cpu.sub.label}　HP:${cpu.sub.hp}/${cpu.sub.maxHP}　ATK:${cpu.sub.atk}`, 'log-evolve');
+        addLog(`  → 進化効果: ${EVOLVE_DEFS[usedKey]?.effectDesc || ''}`, 'log-evolve');
+        showFX('evolve');
+        render();
+        next();
+      });
+    });
+  }
+
+  // ② 交換（進化していない場合のみ）
+  if (willSwap && !willEvolve) {
+    steps.push(next => {
+      // nullify無効化チェック（交換）
+      if (G.nullifyChosen === 'swap' && hasAlmightyZeusMain('player')) {
+        addLog(`⚡ 全能神ゼウスがCPUの交換を無効化！`, 'log-evolve');
+        G.nullifyChosen = null;
+        G.swappedThisTurn = true; G.attackBlocked = true;
+        render(); next(); return;
+      }
+      showCpuAction('🔄', `CPUがメイン⇔サブを交換！`, 'ability', () => {
+        if (G.gameOver) { next(); return; }
+        [cpu.main, cpu.sub] = [cpu.sub, cpu.main];
+        G.swappedThisTurn = true;
+        G.attackBlocked = true;
+        addLog(`🔄 CPUがメイン⇔サブを交換（このターン攻撃不可）`, 'log-system');
+        render();
+        next();
+      });
+    });
+  }
+
+  // ③ 回復スキル（D進化）
+  if (willDHeal) {
+    steps.push(next => {
+      showCpuAction('💧', `CPUがHP回復！`, 'heal', () => {
+        if (G.gameOver) { next(); return; }
+        cpuDHeal();
+        render();
+        next();
+      });
+    });
+  }
+
+  // ③ 能力カード
+  if (playIdx >= 0) {
+    const cardId = hand[playIdx];
+    const def    = ABILITY_DEFS[cardId];
+    const theme  = CARD_THEMES[cardId] || { icon: '🃏' };
+    const typeMap = { heal_main:'heal', heal_all:'heal', direct_damage:'attack', swap_enemy:'ability', extra_attack:'attack', monster_select:'ability', shuffle_enemy:'ability' };
+    steps.push(next => {
+      showCpuAction(theme.icon, `CPUが「${def.name}」を使用！`, typeMap[cardId] || 'ability', () => {
+        if (G.gameOver) { next(); return; }
+        // nullify無効化チェック（能力カード）
+        if (G.nullifyChosen === 'ability' && hasAlmightyZeusMain('player')) {
+          addLog(`⚡ 全能神ゼウスがCPUの「${def.name}」を無効化！`, 'log-evolve');
+          G.nullifyChosen = null;
+          const ci2 = G.cpu.hand.indexOf(cardId);
+          if (ci2 >= 0) G.cpu.hand.splice(ci2, 1); // カードは消費
+          render(); next(); return;
+        }
+        const ci = G.cpu.hand.indexOf(cardId);
+        if (ci >= 0) {
+          if (cardId === 'monster_select' && cpu.monsterDeck.length > 0) {
+            cpu.monsterDeck.sort((a, b) => b.atk - a.atk);
+            G.cpu.hand.splice(ci, 1);
+            addLog(`CPUが「モンスター指定」：次のモンスターを指定`, '');
+          } else {
+            applyAbilityCard('cpu', cardId, ci, () => {});
+          }
+          render();
+        }
+        next();
+      });
+    });
+  }
+
+  // ④ 攻撃（進化・交換した場合はスキップ）
+  steps.push(next => {
+    if (G.gameOver || G.attackBlocked) { next(); return; }
+    const isDoubleAtk = G.cpu.main && G.cpu.main.evolveEffect === 'double_attack';
+    const atk = G.cpu.main ? G.cpu.main.atk : '?';
+    showCpuAction('⚔️', isDoubleAtk ? `CPUが2回攻撃！${atk}×2ダメージ` : `CPUが攻撃！${atk}ダメージ`, 'attack', () => {
+      if (G.gameOver) { next(); return; }
+      if (isDoubleAtk) {
+        doAttack('cpu'); render(); if (!G.gameOver) showAttackFX('player');
+        if (!G.gameOver) setTimeout(() => {
+          doAttack('cpu'); render(); if (!G.gameOver) showAttackFX('player');
+          next();
+        }, 700);
+      } else {
+        const doSecond = G.maxAttacksThisTurn >= 2;
+        // 1回目攻撃（render+FX付き）
+        doAttack('cpu'); render(); if (!G.gameOver) showAttackFX('player');
+        if (!G.gameOver && doSecond) {
+          // キュードレイン後に追加攻撃ポップアップを出す
+          showCpuAction('', '', 'attack', () => {
+            if (G.gameOver) { next(); return; }
+            const atk2 = G.cpu.main ? G.cpu.main.atk : '?';
+            showCpuAction('⚔️', `CPUが追加攻撃！${atk2}ダメージ`, 'attack', () => {
+              if (G.gameOver) { next(); return; }
+              doAttack('cpu'); render(); if (!G.gameOver) showAttackFX('player');
+              showCpuAction('', '', 'attack', next);
+            });
+          });
+        } else {
+          next();
+        }
+      }
+    });
+  });
+
+  // ===== 順番に実行 =====
+  function runSteps(i) {
+    if (G.gameOver) { endCpuTurn(); return; }
+    if (i >= steps.length) { setTimeout(() => endCpuTurn(), 400); return; }
+    steps[i](() => runSteps(i + 1));
+  }
+  runSteps(0);
+}
+
+function cpuDHeal() {
+  if (!G.cpu.main || !G.cpu.main.dHealAvailable) return;
+  let target = G.cpu.main;
+  if (G.cpu.sub && G.cpu.sub.hp / G.cpu.sub.maxHP < G.cpu.main.hp / G.cpu.main.maxHP) {
+    target = G.cpu.sub;
+  }
+  const before = target.hp;
+  target.hp = clamp(target.hp + EVOLVE_D_HEAL, 0, target.maxHP);
+  G.cpu.main.dHealAvailable = false;
+  addLog(`💧 CPUのD進化スキル：${target.type}を+${target.hp - before}回復（${target.hp}/${target.maxHP}）`, 'log-heal');
+}
+
+
+function endCpuTurn() {
+  if (G.gameOver) return;
+  // 波涛ダメージ（CPUメインがwave効果を持つ場合）
+  applyWaveDamage('cpu');
+  if (G.gameOver) { render(); return; }
+  document.getElementById('cpu-thinking').style.display = 'none';
+  G.hasAttacked = false;
+  G.abilityUsed = false;
+  G.extraAttack = false;
+  G.attacksThisTurn = 0;
+  G.maxAttacksThisTurn = 1;
+  G.evolvedThisTurn = false;
+  G.swappedThisTurn = false;
+  G.attackBlocked = false;
+  G.cpu.fushiActive = false; // 不死リセット
+
+  const round = Math.ceil(G.turn / 2);
+  if (round >= G.maxTurns) {
+    const ps = G.player.destroyedCount, cs = G.cpu.destroyedCount;
+    if (ps > cs) endGame('player', `25ターン終了（破壊数: あなた${ps} / CPU${cs}）`);
+    else if (cs > ps) endGame('cpu', `25ターン終了（破壊数: あなた${ps} / CPU${cs}）`);
+    else endGame(null, `25ターン終了（引き分け！ 破壊数: ${ps}）`);
+    return;
+  }
+
+  G.activePlayer = 'player';
+  G.phase = 'ability';
+  G.turn++;
+  addLog(`--- あなたのターン（ラウンド ${Math.ceil(G.turn / 2)}）---`, 'log-system');
+  drawAbilityAtTurnStart('player');
+  render();
+  showTurnBanner('player', `ラウンド ${Math.ceil(G.turn / 2)}`);
+
+  // 全能神ゼウスがCPUのmainにいる → プレイヤーターン開始時にCPUが自動で無効化選択
+  if (hasAlmightyZeusMain('cpu')) {
+    const canEvolve = G.player.sub && !G.player.sub.evolved;
+    const hasHand   = G.player.hand.length > 0;
+    // 優先度: 進化可能→進化無効、手札あり→能力無効、それ以外→攻撃無効
+    let pick = 'attack';
+    if (canEvolve && Math.random() < 0.5) pick = 'evolve';
+    else if (hasHand && Math.random() < 0.4) pick = 'ability';
+    G.nullifyChosen = pick;
+    const pickLabel = pick === 'attack' ? '攻撃' : pick === 'evolve' ? '進化' : pick === 'ability' ? '能力カード' : '交換';
+    addLog(`⚡ 全能神ゼウス（CPU）：あなたの「${pickLabel}」を無効化！`, 'log-evolve');
+    setTimeout(() => {
+      showCpuAction('⚡', `全能神ゼウスの加護！`, 'evolve', null);
+    }, 500);
+  }
+}
+
+// ===================================================
+// WIN / LOSE
+// ===================================================
+function endGame(winner, reason) {
+  G.gameOver = true;
+  G.winner = winner;
+  G.phase = 'gameover';
+  document.getElementById('cpu-thinking').style.display = 'none';
+
+  const overlay = document.getElementById('gameover-overlay');
+  const title   = document.getElementById('gameover-title');
+  const detail  = document.getElementById('gameover-detail');
+
+  if (winner === 'player') {
+    title.textContent = '🎉 あなたの勝利！';
+    title.style.color = '#ffd166';
+  } else if (winner === 'cpu') {
+    title.textContent = '💀 CPUの勝利';
+    title.style.color = '#ff6b6b';
+  } else {
+    title.textContent = '🤝 引き分け';
+    title.style.color = '#aaa';
+  }
+  detail.textContent = reason;
+  // 神デッキ撃破ボーナス
+  const packEl = document.getElementById('pack-reward');
+  if (packEl) packEl.style.display = (winner === 'player' && cpuMode === 'god') ? 'block' : 'none';
+  overlay.classList.add('show');
+  render();
+}
+
+// ===================================================
+// LOG
+// ===================================================
+function addLog(msg, cls) {
+  const logEl = document.getElementById('log-zone');
+  const p = document.createElement('p');
+  if (cls) p.className = cls;
+  p.textContent = msg;
+  logEl.appendChild(p);
+  if (logEl.style.display !== 'none') logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ===================================================
+// VISUAL EFFECTS
+// ===================================================
+function spawnParticle(parent, cx, cy, dx, dy, color, size, duration, delay) {
+  const el = document.createElement('div');
+  el.style.cssText = `position:absolute;left:${cx};top:${cy};width:${size}px;height:${size}px;border-radius:50%;background:${color};transform:translate(-50%,-50%);opacity:1;`;
+  parent.appendChild(el);
+  setTimeout(() => {
+    const start = performance.now();
+    function frame(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const e = 1 - Math.pow(1 - t, 2);
+      el.style.transform = `translate(calc(-50% + ${dx*e}px), calc(-50% + ${dy*e}px)) scale(${1-t*0.5})`;
+      el.style.opacity = String(1 - t);
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }, delay || 0);
+}
+
+function showFX(type) {
+  const ov = document.getElementById('fx-overlay');
+  ov.innerHTML = '';
+
+  if (type === 'attack') {
+    // 赤いスラッシュライン × 3
+    for (let i = 0; i < 3; i++) {
+      const s = document.createElement('div');
+      const rot = -10 + i * 7;
+      s.style.cssText = `position:absolute;left:-5%;width:110%;height:${2+i*1.5}px;top:${28+i*20}%;
+        background:linear-gradient(90deg,transparent,rgba(255,50,50,0.9) 40%,rgba(255,230,230,1) 50%,rgba(255,50,50,0.9) 60%,transparent);
+        --r:${rot}deg;animation:fx-slash 0.38s ${i*0.07}s ease-out both;`;
+      ov.appendChild(s);
+    }
+    // 赤フラッシュ
+    const bg = document.createElement('div');
+    bg.style.cssText = `position:absolute;inset:0;background:rgba(200,20,20,0.18);animation:fx-flash 0.35s ease-out both;`;
+    ov.appendChild(bg);
+
+  } else if (type === 'evolve') {
+    // 紫ラジアルグロー
+    const bg = document.createElement('div');
+    bg.style.cssText = `position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(160,80,255,0.5),transparent 65%);animation:fx-flash 0.9s ease-out both;`;
+    ov.appendChild(bg);
+    // 拡大リング × 6
+    for (let i = 0; i < 6; i++) {
+      const r = document.createElement('div');
+      r.style.cssText = `position:absolute;top:50%;left:50%;width:70px;height:70px;border-radius:50%;
+        border:${3-i*0.3}px solid rgba(210,130,255,${0.9-i*0.1});
+        animation:fx-ring 1.0s ${i*0.1}s ease-out both;`;
+      ov.appendChild(r);
+    }
+    // パーティクル × 14
+    for (let i = 0; i < 14; i++) {
+      const angle = (i/14)*Math.PI*2;
+      const dist = 70 + Math.random()*60;
+      spawnParticle(ov,'50%','50%', Math.cos(angle)*dist, Math.sin(angle)*dist,
+        i%2===0?'#c9a0ff':'#ffffff', 4+Math.random()*5, 700+i*30, i*30);
+    }
+
+  } else if (type === 'ability') {
+    // ゴールドグロー
+    const bg = document.createElement('div');
+    bg.style.cssText = `position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,209,102,0.3),transparent 60%);animation:fx-flash 0.5s ease-out both;`;
+    ov.appendChild(bg);
+    // パーティクル × 12
+    for (let i = 0; i < 12; i++) {
+      const angle = (i/12)*Math.PI*2;
+      const dist = 50 + Math.random()*70;
+      spawnParticle(ov,'50%','50%', Math.cos(angle)*dist, Math.sin(angle)*dist,
+        i%3===0?'#ffffff':'#ffd166', 4+Math.random()*5, 550+i*25, i*25);
+    }
+
+  } else if (type === 'wave') {
+    // 後ろの深海層（暗い青）
+    const deep = document.createElement('div');
+    deep.style.cssText = `position:absolute;bottom:0;left:0;width:100%;height:75%;
+      background:linear-gradient(180deg,rgba(5,30,90,0) 0%,rgba(5,30,90,0.55) 40%,rgba(8,40,120,0.7) 100%);
+      animation:fx-wave-rise 1.1s ease-in-out both;`;
+    ov.appendChild(deep);
+
+    // メイン波の壁（3層）
+    const waveColors = [
+      { bg:'linear-gradient(180deg,rgba(20,120,220,0.92) 0%,rgba(10,60,160,0.85) 60%,rgba(5,30,100,0.75) 100%)', delay:'0s', h:'70%' },
+      { bg:'linear-gradient(180deg,rgba(40,160,240,0.8) 0%,rgba(20,100,200,0.75) 60%,transparent 100%)',          delay:'0.06s', h:'60%' },
+      { bg:'linear-gradient(180deg,rgba(80,200,255,0.6) 0%,rgba(40,140,220,0.5) 50%,transparent 100%)',           delay:'0.12s', h:'50%' },
+    ];
+    waveColors.forEach(({ bg, delay, h }) => {
+      const w = document.createElement('div');
+      // clip-path で波形クレスト
+      w.style.cssText = `position:absolute;bottom:0;left:-2%;width:104%;height:${h};
+        background:${bg};
+        clip-path:polygon(0% 14%,5% 8%,12% 13%,20% 5%,28% 12%,37% 3%,46% 11%,55% 2%,64% 10%,73% 4%,82% 12%,90% 5%,97% 10%,100% 8%,100% 100%,0% 100%);
+        animation:fx-wave-rise 1.1s ${delay} ease-in-out both;`;
+      ov.appendChild(w);
+    });
+
+    // クレスト白泡（波頭）
+    for (let i = 0; i < 3; i++) {
+      const foam = document.createElement('div');
+      const left = 15 + i * 30 + Math.random() * 10;
+      foam.style.cssText = `position:absolute;bottom:calc(${['70%','60%','50%'][i]} - 4px);left:${left}%;
+        width:${40 + Math.random() * 30}px;height:8px;
+        background:rgba(255,255,255,0.9);border-radius:50%;
+        filter:blur(2px);
+        animation:fx-foam-pop 0.5s ${0.3 + i*0.08}s ease-out both;`;
+      ov.appendChild(foam);
+    }
+
+    // 青フラッシュ
+    const bg = document.createElement('div');
+    bg.style.cssText = `position:absolute;inset:0;background:radial-gradient(ellipse at 50% 80%,rgba(0,100,220,0.25),transparent 70%);animation:fx-flash 1.0s ease-out both;`;
+    ov.appendChild(bg);
+
+    // 水しぶきパーティクル（クレストから弾け飛ぶ）
+    for (let i = 0; i < 20; i++) {
+      const x = 10 + Math.random() * 80;
+      const dy = -(40 + Math.random() * 80);
+      const dx = (Math.random() - 0.5) * 100;
+      spawnParticle(ov, `${x}%`, '30%', dx, dy,
+        i % 4 === 0 ? '#ffffff' : i % 4 === 1 ? '#b0eeff' : i % 4 === 2 ? '#60c8ff' : '#0090dd',
+        2 + Math.random() * 4, 700 + i * 20, 200 + i * 30);
+    }
+
+  } else if (type === 'evolved-ability') {
+    // シアングロー
+    const bg = document.createElement('div');
+    bg.style.cssText = `position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(40,200,230,0.35),transparent 60%);animation:fx-flash 0.6s ease-out both;`;
+    ov.appendChild(bg);
+    // 拡大リング × 4
+    for (let i = 0; i < 4; i++) {
+      const r = document.createElement('div');
+      r.style.cssText = `position:absolute;top:50%;left:50%;width:55px;height:55px;border-radius:50%;
+        border:2px solid rgba(60,220,255,${0.9-i*0.15});
+        animation:fx-ring 0.75s ${i*0.12}s ease-out both;`;
+      ov.appendChild(r);
+    }
+    // パーティクル × 10
+    for (let i = 0; i < 10; i++) {
+      const angle = (i/10)*Math.PI*2;
+      const dist = 45+Math.random()*55;
+      spawnParticle(ov,'50%','50%', Math.cos(angle)*dist, Math.sin(angle)*dist,
+        '#28d8f8', 4+Math.random()*4, 520+i*25, i*30);
+    }
+  } else if (type === 'zeus_ascend') {
+    // 暗転（黒）
+    const black = document.createElement('div');
+    black.style.cssText = `position:absolute;inset:0;background:#000;animation:fx-zeus-dark 2.8s ease-out both;`;
+    ov.appendChild(black);
+    // 雷光ボルト × 6
+    for (let i = 0; i < 6; i++) {
+      const bolt = document.createElement('div');
+      bolt.style.cssText = `position:absolute;left:${8+i*16}%;top:0;width:${1+Math.random()*2}px;height:100%;
+        background:linear-gradient(180deg,rgba(255,230,80,1),rgba(255,255,200,0.6),transparent);
+        transform-origin:top center;animation:fx-zeus-bolt 0.45s ${i*0.08}s ease-out both;`;
+      ov.appendChild(bolt);
+    }
+    // ゴールドフラッシュ
+    const gold = document.createElement('div');
+    gold.style.cssText = `position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(255,210,50,0.55),transparent 65%);animation:fx-flash 0.8s 0.2s ease-out both;`;
+    ov.appendChild(gold);
+    // パーティクル × 24
+    for (let i = 0; i < 24; i++) {
+      const angle = (i/24)*Math.PI*2;
+      const dist = 90 + Math.random()*110;
+      spawnParticle(ov,'50%','45%', Math.cos(angle)*dist, Math.sin(angle)*dist,
+        i%3===0?'#ffe066':i%3===1?'#ffffff':'#ffc820', 4+Math.random()*6, 900+i*25, 250+i*15);
+    }
+    setTimeout(() => { ov.innerHTML = ''; }, 3200);
+    return;
+  }
+
+  setTimeout(() => { ov.innerHTML = ''; }, 1500);
+}
+
+function toggleLog() {
+  const log = document.getElementById('log-zone');
+  const btn = document.getElementById('log-toggle');
+  const isOpen = log.style.display === 'block';
+  log.style.display = isOpen ? 'none' : 'block';
+  btn.textContent   = isOpen ? '▼ バトルログ' : '▲ バトルログ';
+  if (!isOpen) log.scrollTop = log.scrollHeight;
+}
+
+// ===== RULES SCREEN =====
+const RULES_IMAGES = [
+  'images/How to Play/ru-ru1.jpg',
+  'images/How to Play/ru-ru2.PNG',
+  'images/How to Play/ru-ru3.PNG',
+  'images/How to Play/ru-ru4.PNG',
+  'images/How to Play/ru-ru5.JPEG',
+];
+let _rulesPage = 0;
+
+function showRulesScreen() {
+  _rulesPage = 0;
+  document.getElementById('start-screen').style.display = 'none';
+  const rs = document.getElementById('rules-screen');
+  rs.style.display = 'flex';
+  _updateRulesImg();
+}
+
+function _updateRulesImg() {
+  document.getElementById('rules-img').src = RULES_IMAGES[_rulesPage];
+  document.getElementById('rules-page').textContent = `${_rulesPage + 1} / ${RULES_IMAGES.length}`;
+  document.getElementById('rules-prev').style.visibility = _rulesPage === 0 ? 'hidden' : 'visible';
+  document.getElementById('rules-next').textContent = _rulesPage === RULES_IMAGES.length - 1 ? '✕ 閉じる' : '次へ ▶';
+}
+
+function rulesNav(dir) {
+  if (dir === 1 && _rulesPage === RULES_IMAGES.length - 1) {
+    document.getElementById('rules-screen').style.display = 'none';
+    document.getElementById('start-screen').style.display = 'flex';
+    return;
+  }
+  _rulesPage = Math.max(0, Math.min(RULES_IMAGES.length - 1, _rulesPage + dir));
+  _updateRulesImg();
+}
+
+// ===== SPLASH SCREEN =====
+(function() {
+  const splash = document.getElementById('splash-screen');
+  const startScreen = document.getElementById('start-screen');
+  // ロゴフェードイン (300ms後に開始)
+  setTimeout(() => splash.classList.add('logo-in'), 300);
+  // フェードアウト開始 (ロゴ表示 1s + ホールド 1.2s = 2200ms)
+  setTimeout(() => splash.classList.add('fade-out'), 2200);
+  // スプラッシュ非表示＆スタート画面表示 (フェードアウト 0.6s後)
+  setTimeout(() => {
+    splash.style.display = 'none';
+    startScreen.style.display = 'flex';
+  }, 2800);
+})();
+</script>
+</body>
+</html>
