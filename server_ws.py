@@ -78,10 +78,15 @@ async def index_handler(request):
     return web.FileResponse(Path(__file__).parent / 'card_game.html')
 
 
+async def manifest_handler(request):
+    return web.FileResponse(Path(__file__).parent / 'manifest.json')
+
+
 def create_app():
     app = web.Application()
     app.router.add_get('/ws', websocket_handler)
     app.router.add_get('/', index_handler)
+    app.router.add_get('/manifest.json', manifest_handler)
     # 画像フォルダを静的ファイルとして配信
     images_dir = Path(__file__).parent / 'images'
     if images_dir.exists():
