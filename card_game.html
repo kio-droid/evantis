@@ -1880,9 +1880,7 @@ function startGame() {
   document.getElementById('enemy-area').style.background  = '';
   const godTypes = ['Z','Ar','Po','At','He'];
   // プレイヤー: 神デッキモードならミラー、通常はlocalStorage保存デッキ
-  const pMonsters = cpuMode === 'god'
-    ? shuffle(MONSTER_DEFS.filter(m => godTypes.includes(m.type)))
-    : shuffle(loadMonsterDeck().map(t => MONSTER_DEFS.find(m => m.type === t) || MONSTER_DEFS[0]));
+  const pMonsters = shuffle(loadMonsterDeck().map(t => MONSTER_DEFS.find(m => m.type === t) || MONSTER_DEFS[0]));
   // CPU デッキ選択（通常: A〜E固定 / 神: Z+Ar+Po+At+He）
   const cMonsters = cpuMode === 'god'
     ? shuffle(MONSTER_DEFS.filter(m => godTypes.includes(m.type)))
@@ -1911,7 +1909,7 @@ function startGame() {
       sub:  createMonster(pMonsters[1]),
       monsterDeck: pMonsters.slice(2).map(createMonster),
       abilityDeck: (() => {
-        const counts = cpuMode === 'god' ? GOD_ABILITY_DECK : loadAbilityDeck();
+        const counts = loadAbilityDeck();
         const deck = [];
         for (const [id, cnt] of Object.entries(counts)) {
           for (let i = 0; i < cnt; i++) deck.push(id);
