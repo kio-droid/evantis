@@ -980,7 +980,7 @@ body {
       <div style="color:#ffd166;font-weight:bold;font-size:0.95rem;margin-bottom:4px">神デッキ撃破！</div>
       <div style="color:#ffaa40;font-size:0.8rem">神パック解禁予定（今後実装）</div>
     </div>
-    <button class="btn-start" onclick="location.reload()">もう一度プレイ</button>
+    <button class="btn-start" onclick="backToDeck()">デッキ確認へ戻る</button>
   </div>
 </div>
 
@@ -1634,6 +1634,14 @@ function loadAbilityDeck() {
   return {...DEFAULT_ABILITY_DECK};
 }
 function saveAbilityDeck(counts) { localStorage.setItem(LS_ABILITY_KEY, JSON.stringify(counts)); }
+
+function backToDeck() {
+  document.getElementById('gameover-overlay').classList.remove('show');
+  document.getElementById('game-container').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('deck-screen').style.display = 'flex';
+  renderDeckScreen();
+}
 
 function showDeckScreen() {
   document.getElementById('start-screen').style.display = 'none';
