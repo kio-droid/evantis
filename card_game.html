@@ -3366,9 +3366,10 @@ function cpuAct() {
       const valid = hand.map((c, i) => ({ c, i })).filter(({ c, i }) => {
         if (cpu.sealedIndices.has(i)) return false;
         if (c === 'extra_attack' && attackWillBeBlocked) return false;
-        if (c === 'swap_enemy') return false;           // 一撃排除条件なしでは使わない
-        if (c === 'fushi' && willSwap) return false;    // 交換ターンは不死使わない
-        if (c === 'fushi' && !willDie_g) return false;  // 死なないなら不死は後回し
+        if (c === 'swap_enemy') return false;                          // 一撃排除条件なしでは使わない
+        if (c === 'fushi' && willSwap) return false;                   // 交換ターンは不死使わない
+        if (c === 'fushi' && !willDie_g) return false;                 // 死なないなら不死は後回し
+        if ((c === 'heal_main' || c === 'heal_all') && !mainNeedsHeal) return false; // HP満タンは回復しない
         return true;
       });
       if (valid.length > 0) playIdx = valid[0].i;
