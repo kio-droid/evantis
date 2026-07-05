@@ -1408,83 +1408,100 @@ function applyOpponentAction(data) {
 
   switch (data.action) {
     case 'attack': {
-      showActionBanner('⚔️ 相手が攻撃！', '#ff6060');
-      doAttack('cpu');
-      G.attacksThisTurn++;
-      render();
-      if (!G.gameOver) showAttackFX('player');
+      const atk = G.cpu.main ? G.cpu.main.atk : '?';
+      showCpuAction('⚔️', `相手が攻撃！${atk}ダメージ`, 'attack', () => {
+        if (G.gameOver) return;
+        doAttack('cpu');
+        G.attacksThisTurn++;
+        render();
+        if (!G.gameOver) showAttackFX('player');
+      });
       break;
     }
     case 'evolve': {
       const m = G.cpu.sub;
       if (m && !m.evolved) {
         const evKey = data.evolveKey || m.type;
-        evolveMonster(m, evKey);
-        G.evolvedThisTurn = true;
-        G.attackBlocked = true;
-        G.cpu.evolvedTotal++;
-        showActionBanner(`✨ 相手が進化！`, '#c9a0ff');
-        addLog(`✨ 相手の${m.label}（サブ）が進化！HP:${m.hp}/${m.maxHP}　ATK:${m.atk}`, 'log-evolve');
-        addLog(`  → ${EVOLVE_DEFS[evKey]?.effectDesc || ''}（このターン攻撃不可）`, 'log-evolve');
-        showFX('evolve');
+        const evDef = EVOLVE_DEFS[evKey];
+        showCpuAction('✨', `相手が${evDef?.evolvedLabel || '???'}に進化！`, 'evolve', () => {
+          if (G.gameOver) return;
+          evolveMonster(m, evKey);
+          G.evolvedThisTurn = true;
+          G.attackBlocked = true;
+          G.cpu.evolvedTotal++;
+          addLog(`✨ 相手の${m.label}（サブ）が進化！HP:${m.hp}/${m.maxHP}　ATK:${m.atk}`, 'log-evolve');
+          addLog(`  → ${evDef?.effectDesc || ''}（このターン攻撃不可）`, 'log-evolve');
+          showFX('evolve');
+          render();
+        });
       }
-      render();
       break;
     }
     case 'swap': {
       if (G.cpu.sub) {
-        [G.cpu.main, G.cpu.sub] = [G.cpu.sub, G.cpu.main];
-        G.swappedThisTurn = true;
-        G.attackBlocked = true;
-        showActionBanner('🔄 相手が交換！', '#80c8ff');
-        addLog(`🔄 相手がメイン⇔サブを交換（このターン攻撃不可）`, 'log-system');
+        showCpuAction('🔄', '相手が交換！', 'ability', () => {
+          if (G.gameOver) return;
+          [G.cpu.main, G.cpu.sub] = [G.cpu.sub, G.cpu.main];
+          G.swappedThisTurn = true;
+          G.attackBlocked = true;
+          addLog(`🔄 相手がメイン⇔サブを交換（このターン攻撃不可）`, 'log-system');
+          render();
+        });
       }
-      render();
       break;
     }
     case 'use_card': {
       const cardDef = ABILITY_DEFS[data.cardId];
-      if (cardDef) showActionBanner(`🃏 ${cardDef.name}`, '#ffd166');
-      applyOpponentCard(data);
-      render();
+      const cardTheme = CARD_THEMES[data.cardId] || {};
+      showCpuAction(cardTheme.icon || '🃏', `相手が「${cardDef?.name || data.cardId}」を使用！`, 'ability', () => {
+        if (G.gameOver) return;
+        applyOpponentCard(data);
+        render();
+      });
       break;
     }
     case 'd_heal': {
-      const slot = data.slot;
-      const m = slot === 'main' ? G.cpu.main : G.cpu.sub;
-      if (m) {
-        const before = m.hp;
-        m.hp = clamp(m.hp + EVOLVE_D_HEAL, 0, m.maxHP);
-        if (G.cpu.main?.evolveEffect === 'd_heal') G.cpu.main.dHealAvailable = false;
-        if (G.cpu.sub?.evolveEffect  === 'd_heal') G.cpu.sub.dHealAvailable  = false;
-        showActionBanner('💧 相手がD回復！', '#70d0ff');
-        addLog(`💧 相手のD進化スキル：${m.label}を+${m.hp - before}回復！`, 'log-heal');
-      }
-      render();
+      showCpuAction('💧', '相手がD進化スキル発動！', 'ability', () => {
+        if (G.gameOver) return;
+        const slot = data.slot;
+        const m = slot === 'main' ? G.cpu.main : G.cpu.sub;
+        if (m) {
+          const before = m.hp;
+          m.hp = clamp(m.hp + EVOLVE_D_HEAL, 0, m.maxHP);
+          if (G.cpu.main?.evolveEffect === 'd_heal') G.cpu.main.dHealAvailable = false;
+          if (G.cpu.sub?.evolveEffect  === 'd_heal') G.cpu.sub.dHealAvailable  = false;
+          addLog(`💧 相手のD進化スキル：${m.label}を+${m.hp - before}回復！`, 'log-heal');
+        }
+        render();
+      });
       break;
     }
     case 'end_turn': {
-      drawAbility('cpu');
-      G.hasAttacked = false; G.abilityUsed = false; G.extraAttack = false;
-      G.attacksThisTurn = 0; G.maxAttacksThisTurn = 1;
-      G.evolvedThisTurn = false; G.swappedThisTurn = false; G.attackBlocked = false;
-      G.nullifyChosen = null;
-      G.turn++;
-      G.myTurn = true;
-      G.activePlayer = 'player';
-      G.phase = 'ability';
-      const round = Math.ceil(G.turn / 2);
-      if (round > G.maxTurns) {
-        const ps = G.player.destroyedCount, cs = G.cpu.destroyedCount;
-        if (ps > cs) endGame('player', `25ターン終了（破壊数: あなた${ps} / 相手${cs}）`);
-        else if (cs > ps) endGame('cpu', `25ターン終了（破壊数: あなた${ps} / 相手${cs}）`);
-        else endGame(null, `25ターン終了（引き分け！）`);
-        return;
-      }
-      addLog(`--- あなたのターン (R${round}) ---`, 'log-system');
-      drawAbilityAtTurnStart('player');
-      render();
-      showTurnBanner('player', `ラウンド ${round}`);
+      // 前のポップアップが終わってからターン切替
+      showCpuAction('', '', 'ability', () => {
+        if (G.gameOver) return;
+        drawAbility('cpu');
+        G.hasAttacked = false; G.abilityUsed = false; G.extraAttack = false;
+        G.attacksThisTurn = 0; G.maxAttacksThisTurn = 1;
+        G.evolvedThisTurn = false; G.swappedThisTurn = false; G.attackBlocked = false;
+        G.nullifyChosen = null;
+        G.turn++;
+        G.myTurn = true;
+        G.activePlayer = 'player';
+        G.phase = 'ability';
+        const round = Math.ceil(G.turn / 2);
+        if (round > G.maxTurns) {
+          const ps = G.player.destroyedCount, cs = G.cpu.destroyedCount;
+          if (ps > cs) endGame('player', `25ターン終了（破壊数: あなた${ps} / 相手${cs}）`);
+          else if (cs > ps) endGame('cpu', `25ターン終了（破壊数: あなた${ps} / 相手${cs}）`);
+          else endGame(null, `25ターン終了（引き分け！）`);
+          return;
+        }
+        addLog(`--- あなたのターン (R${round}) ---`, 'log-system');
+        drawAbilityAtTurnStart('player');
+        render();
+        showTurnBanner('player', `ラウンド ${round}`);
+      });
       break;
     }
   }
