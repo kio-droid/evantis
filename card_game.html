@@ -3208,7 +3208,7 @@ function endPlayerTurn() {
   G.swappedThisTurn = false;
   G.attackBlocked = false;
   G.nullifyChosen = null;
-  G.player.fushiActive = false; // 不死リセット
+  G.cpu.fushiActive = false; // CPUの不死リセット（前ターンに使っていたなら消去）
   G.activePlayer = 'cpu';
   G.phase = 'ability';
   G.turn++;
@@ -3607,7 +3607,7 @@ function endCpuTurn() {
   G.evolvedThisTurn = false;
   G.swappedThisTurn = false;
   G.attackBlocked = false;
-  G.cpu.fushiActive = false; // 不死リセット
+  G.player.fushiActive = false; // プレイヤーの不死リセット（前ターンに使っていたなら消去）
 
   const round = Math.ceil(G.turn / 2);
   if (round >= G.maxTurns) {
