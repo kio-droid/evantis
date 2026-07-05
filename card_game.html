@@ -526,14 +526,14 @@ body {
 
 /* ===== CARD ATTACK FX ===== */
 @keyframes card-shake {
-  0%  {transform:translateX(0)   translateY(0)}
-  15% {transform:translateX(-9px) translateY(-4px)}
-  30% {transform:translateX(9px)  translateY(4px)}
-  45% {transform:translateX(-6px) translateY(-2px)}
-  60% {transform:translateX(6px)  translateY(2px)}
-  75% {transform:translateX(-3px) translateY(-1px)}
-  90% {transform:translateX(3px)  translateY(1px)}
-  100%{transform:translateX(0)   translateY(0)}
+  0%  {transform:translateX(0)}
+  15% {transform:translateX(-9px)}
+  30% {transform:translateX(9px)}
+  45% {transform:translateX(-6px)}
+  60% {transform:translateX(6px)}
+  75% {transform:translateX(-3px)}
+  90% {transform:translateX(3px)}
+  100%{transform:translateX(0)}
 }
 .card-shake { animation: card-shake 0.45s ease-out !important; z-index: 20; }
 @keyframes card-hit-pop {
@@ -2088,7 +2088,11 @@ function battleCardHTML(m, size, who, slot) {
     else if (m.evolveEffect === 'wave')         effectBadge = `🌊 波涛${WAVE_DMG}/T`;
     else if (m.evolveEffect === 'regen')        effectBadge = `🔥 回復${REGEN_AMT}/T`;
     else if (m.evolveEffect === 'xdraw')        effectBadge = `🦉 追加ドロー`;
-    else if (m.evolveEffect === 'zeus_lazy')    effectBadge = `⚡ 超進化待機中`;
+    else if (m.evolveEffect === 'zeus_lazy') {
+      const oppWho = who === 'player' ? 'cpu' : 'player';
+      const oppScore = G?.[oppWho]?.destroyedCount ?? 0;
+      effectBadge = oppScore >= 2 ? `⚡ 超進化不発` : `⚡ 超進化待機中`;
+    }
     else effectBadge = '★ 強化';
   }
 
