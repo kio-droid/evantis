@@ -2012,7 +2012,8 @@ function drawAbilityAtTurnStart(who) {
     p.hand.push(xcard);
     const xcardName = ABILITY_DEFS[xcard]?.name || xcard;
     if (who === 'player') addLog(`🦉 アテナ追加ドロー: 「${xcardName}」`, '');
-    showCpuAction('🦉', `知恵の閃き！「${xcardName}」をドロー`, 'ability', null);
+    const xdrawMsg = who === 'cpu' ? '知恵の閃き！カードをドロー' : `知恵の閃き！「${xcardName}」をドロー`;
+    showCpuAction('🦉', xdrawMsg, 'ability', null);
   }
   // regen: 炉神ヘスティア 開始時回復
   if (p.main?.evolveEffect === 'regen') {
@@ -3249,10 +3250,10 @@ function cpuAct() {
       willEvolve = true;
     } else {
       if (cpuMode === 'god') {
-        // ゼウスが生きてる間は進化枠を1つ確保（全能神用）
+        // 即時進化（ゼウスがいる間は1枠確保）
         const zeusAlive = [cpu.main, cpu.sub, ...cpu.monsterDeck].some(m => m && m.type === 'Z');
         const nonZeusLimit = zeusAlive ? 1 : 2;
-        willEvolve = G.cpu.evolvedTotal < nonZeusLimit && mainRatio > 0.4;
+        willEvolve = G.cpu.evolvedTotal < nonZeusLimit; // HPに関係なく即進化
       } else {
         if (diff === 'easy')   willEvolve = Math.random() < 0.3;
         if (diff === 'normal') willEvolve = true;
@@ -3267,6 +3268,35 @@ function cpuAct() {
     if (diff === 'easy')   willSwap = mainRatio < 0.2 && Math.random() < 0.4; // HP極低でも低確率
     if (diff === 'normal') willSwap = mainRatio < 0.35 && subRatio > mainRatio + 0.2;
     if (diff === 'hard')   willSwap = mainRatio < 0.45 && subRatio > mainRatio + 0.15; // 早めに交換
+    if (cpuMode === 'god') {
+      // 神モード専用交換判断（hardの値を上書き）
+      const subEvolved_g  = cpu.sub.evolved;
+      const mainEvolved_g = cpu.main ? cpu.main.evolved : false;
+      const cpuAtk_g  = cpu.main ? cpu.main.atk : 0;
+      const cpuHP_g   = cpu.main ? cpu.main.hp  : 0;
+      const oppHP_g   = G.player.main ? G.player.main.hp  : 999;
+      const oppSAtk_g = G.player.sub  ? G.player.sub.atk  : 0;
+      // 相手を次の攻撃で倒せる → 交換せず攻撃継続
+      const canKill_g        = G.player.main && cpuAtk_g >= oppHP_g;
+      // 自HP≤10 かつ一撃で倒せて、相手サブATK≤自HP → 次の攻撃に耐えられるので継続
+      const canSurviveKill_g = cpuHP_g <= 10 && canKill_g && oppSAtk_g <= cpuHP_g;
+      const keepAttacking_g  = canKill_g || canSurviveKill_g;
+      // 残りモンスター数で終盤判定
+      const cpuRem_g = cpu.monsterDeck.length;
+      const oppRem_g = (G.player.sub ? 1 : 0) + G.player.monsterDeck.length;
+      const isLate_g = (cpuRem_g + oppRem_g) <= 3;
+      willSwap = false;
+      if (!keepAttacking_g) {
+        if (subEvolved_g && !mainEvolved_g) {
+          // 進化後サブをメインに出す（基本戦略）
+          // ただしサブが未進化なら進化を優先（willEvolveで対処済み）
+          willSwap = true;
+        } else if (isLate_g && subEvolved_g && subRatio > mainRatio + 0.15 && mainRatio < 0.45) {
+          // 終盤のみHP管理交換（サブ進化済みの場合のみ）
+          willSwap = true;
+        }
+      }
+    }
   }
 
   const willDHeal = cpu.main && cpu.main.evolveEffect === 'd_heal' && cpu.main.dHealAvailable && mainHPRatio < 0.5;
@@ -3280,58 +3310,60 @@ function cpuAct() {
   let playIdx = -1;
 
   if (cpuMode === 'god') {
-    // ===== 神デッキ専用AI =====
-    const aresIsMain    = cpu.main && cpu.main.evolveEffect === 'ares_bonus';
-    const hestiaIsMain  = cpu.main && cpu.main.evolveEffect === 'regen';
-    // アレス/ヘスティアが進化済みかどうか（メイン or サブに存在）
-    const aresEvolved   = aresIsMain || (cpu.sub && cpu.sub.evolveEffect === 'ares_bonus');
-    const hestiaEvolved = hestiaIsMain || (cpu.sub && cpu.sub.evolveEffect === 'regen');
-    const oppMain = G.player.main;
-    const oppHPRatio = oppMain ? oppMain.hp / oppMain.maxHP : 1;
+    // ===== 神デッキ専用AI（能力カード） =====
+    const oppMain_g  = G.player.main;
+    const oppSub_g   = G.player.sub;
+    const cpuAtk_g2  = cpu.main ? cpu.main.atk : 0;
+    const cpuHP_g2   = cpu.main ? cpu.main.hp  : 0;
+    const oppAtk_g2  = oppMain_g ? oppMain_g.atk : 0;
+    const oppSubHP_g2 = oppSub_g ? oppSub_g.hp  : 999;
+    // 次の相手攻撃で死ぬか
+    const willDie_g  = cpu.main && oppAtk_g2 >= cpuHP_g2;
 
-    // シールド：HP半分以下で積極的に張る
-    if (!evolvedCCPU && hasCard('shield') && mainHPRatio < 0.5 && Math.random() < 0.8) {
-      playIdx = findCard('shield');
-    }
-    // 回復：ヘスティア進化済みならヘスティアがメインの時のみ使う。未進化なら通常使用
-    if (playIdx < 0 && mainHPRatio < 0.5 && !evolvedCCPU && !willSwap && mainNeedsHeal) {
-      if (!hestiaEvolved || hestiaIsMain) {
-        let hi = findCard('heal_main');
-        if (hi >= 0) playIdx = hi;
-        if (playIdx < 0) { hi = findCard('heal_all'); if (hi >= 0) playIdx = hi; }
-      }
-    }
-    // direct_damage：相手HPが低い時に止めを刺す
-    if (playIdx < 0 && !evolvedCCPU && oppHPRatio < 0.65 && hasCard('direct_damage')) {
-      playIdx = findCard('direct_damage');
-    }
-    // extra_attack：アレス進化済みならアレスがメインの時のみ使う。未進化なら通常使用
-    if (playIdx < 0 && !evolvedCCPU && !attackWillBeBlocked) {
-      if (!aresEvolved || aresIsMain) {
-        const ei = findCard('extra_attack');
-        if (ei >= 0) playIdx = ei;
-      }
-    }
-    // 不死：神メインのHPが低い時に使う
-    if (playIdx < 0 && cpu.main && cpu.main.category === '神' && mainHPRatio < 0.35 && !cpu.fushiActive && hasCard('fushi')) {
+    // 不死：次の攻撃で死ぬ時のみ、かつ交換しないターン
+    if (playIdx < 0 && !willSwap && willDie_g && !cpu.fushiActive && hasCard('fushi')) {
       playIdx = findCard('fushi');
     }
-    // fuuin：相手手札が多い時に封印
-    if (playIdx < 0 && !evolvedCCPU && G.player.hand.length >= 3 && hasCard('fuuin') && Math.random() < 0.6) {
-      playIdx = findCard('fuuin');
-    }
-    // kaishuu：手札が少なく捨て札がある時
-    if (playIdx < 0 && cpu.discardPile.length > 0 && hand.length <= 2 && hasCard('kaishuu')) {
-      playIdx = findCard('kaishuu');
-    }
-    // swap_enemy：相手のメインHPが高く、サブが弱い状況で揺さぶる
-    if (playIdx < 0 && !evolvedCCPU && hasCard('swap_enemy') && Math.random() < 0.5) {
+    // swap_enemy：相手サブを自ATKで一撃排除できる時のみ
+    if (playIdx < 0 && oppSub_g && cpuAtk_g2 >= oppSubHP_g2 && hasCard('swap_enemy')) {
       playIdx = findCard('swap_enemy');
     }
-    // direct_damage残り
-    if (playIdx < 0 && !evolvedCCPU) {
-      const di = findCard('direct_damage');
-      if (di >= 0) playIdx = di;
+    // 追加攻撃（攻撃できる時）
+    if (playIdx < 0 && !attackWillBeBlocked && hasCard('extra_attack')) {
+      playIdx = findCard('extra_attack');
+    }
+    // 直接攻撃
+    if (playIdx < 0 && hasCard('direct_damage')) {
+      playIdx = findCard('direct_damage');
+    }
+    // 手札破壊
+    if (playIdx < 0 && hasCard('shuffle_enemy')) {
+      playIdx = findCard('shuffle_enemy');
+    }
+    // シールド
+    if (playIdx < 0 && hasCard('shield')) {
+      playIdx = findCard('shield');
+    }
+    // 回復：回復後に相手の攻撃に耐えられる場合のみ
+    if (playIdx < 0 && mainNeedsHeal && !willSwap) {
+      const hi = findCard('heal_main');
+      if (hi >= 0 && (cpuHP_g2 + HEAL_MAIN_AMT) > oppAtk_g2) playIdx = hi;
+      if (playIdx < 0) {
+        const ha = findCard('heal_all');
+        if (ha >= 0 && (cpuHP_g2 + HEAL_ALL_AMT) > oppAtk_g2) playIdx = ha;
+      }
+    }
+    // 毎ターン必ず何か使う（上記で未選択なら有効な手札から選択）
+    if (playIdx < 0) {
+      const valid = hand.map((c, i) => ({ c, i })).filter(({ c, i }) => {
+        if (cpu.sealedIndices.has(i)) return false;
+        if (c === 'extra_attack' && attackWillBeBlocked) return false;
+        if (c === 'swap_enemy') return false;           // 一撃排除条件なしでは使わない
+        if (c === 'fushi' && willSwap) return false;    // 交換ターンは不死使わない
+        if (c === 'fushi' && !willDie_g) return false;  // 死なないなら不死は後回し
+        return true;
+      });
+      if (valid.length > 0) playIdx = valid[0].i;
     }
   } else if (diff === 'easy') {
     // 弱い：30%でランダムに使う（extra_attackは攻撃できない時は除外、封印も除外）
