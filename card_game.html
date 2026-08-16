@@ -756,6 +756,53 @@ body {
   <div style="display:flex;flex-direction:column;gap:12px;width:88%;max-width:320px">
     <button class="btn-start" onclick="showDeckScreen()">デッキ確認・ゲーム開始</button>
     <button class="btn-start" style="background:linear-gradient(135deg,#2a3a5c,#1a2a4c);border-color:#4a6fa5;" onclick="showRulesScreen()">ルール確認</button>
+    <button class="btn-start" style="background:linear-gradient(135deg,#1a1a3c,#0f0f28);border-color:#445599" onclick="showFieldScreen()">🏙 探索モード</button>
+  </div>
+</div>
+
+<!-- ===== FIELD SCREEN ===== -->
+<div id="field-screen" style="display:none;position:fixed;inset:0;z-index:50;overflow:hidden;background:#000">
+  <!-- 背景画像 -->
+  <img id="field-bg" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center top;z-index:1">
+  <!-- キャラcanvas -->
+  <canvas id="field-canvas" style="position:absolute;inset:0;z-index:2;pointer-events:none"></canvas>
+  <!-- ローディング -->
+  <div id="field-loading" style="display:none;position:absolute;inset:0;background:#000;align-items:center;justify-content:center;z-index:20">
+    <div style="color:#aaa;font-size:0.9rem;letter-spacing:0.1em">Loading...</div>
+  </div>
+  <!-- HUD -->
+  <div style="position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;padding:10px 12px;gap:10px;background:linear-gradient(rgba(0,0,0,0.55),transparent)">
+    <button onclick="hideFieldScreen()" style="background:rgba(0,0,0,0.6);border:1px solid #444;border-radius:8px;color:#aaa;padding:6px 14px;font-size:0.8rem;cursor:pointer">← 戻る</button>
+    <span id="field-area-name" style="color:#fff;font-size:0.9rem;font-weight:bold;letter-spacing:0.08em;text-shadow:0 1px 6px rgba(0,0,0,0.9)"></span>
+  </div>
+  <!-- 3ボタン -->
+  <div style="position:absolute;bottom:0;left:0;right:0;z-index:10;display:flex;border-top:1px solid rgba(255,255,255,0.15)">
+    <button id="field-explore-btn" onclick="fieldToggleExplore()" style="flex:1;padding:20px 0 calc(20px + env(safe-area-inset-bottom));background:rgba(0,0,0,0.8);border:none;border-right:1px solid rgba(255,255,255,0.15);color:#fff;font-size:0.88rem;cursor:pointer;letter-spacing:0.04em">🔍 探索</button>
+    <button onclick="fieldShowMoveModal()" style="flex:1;padding:20px 0 calc(20px + env(safe-area-inset-bottom));background:rgba(0,0,0,0.8);border:none;border-right:1px solid rgba(255,255,255,0.15);color:#fff;font-size:0.88rem;cursor:pointer;letter-spacing:0.04em">🗺 移動</button>
+    <button onclick="fieldGoToDeck()" style="flex:1;padding:20px 0 calc(20px + env(safe-area-inset-bottom));background:rgba(0,0,0,0.8);border:none;color:#fff;font-size:0.88rem;cursor:pointer;letter-spacing:0.04em">🃏 デッキ</button>
+  </div>
+  <!-- 移動モーダル -->
+  <div id="field-move-modal" style="display:none;position:absolute;inset:0;z-index:30;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.55)">
+    <div style="width:100%;max-width:480px;background:#0a0a18;border-top:2px solid #334466;border-radius:16px 16px 0 0;padding:24px 20px 40px">
+      <div style="color:#a0c4ff;font-size:0.78rem;letter-spacing:0.12em;text-align:center;margin-bottom:16px">移動先を選択</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <button id="move-btn-shibuya"   class="btn-start" onclick="fieldMoveTo('shibuya')"   style="font-size:0.85rem;padding:14px">渋谷</button>
+        <button id="move-btn-shinjuku"  class="btn-start" onclick="fieldMoveTo('shinjuku')"  style="font-size:0.85rem;padding:14px">新宿</button>
+        <button id="move-btn-akihabara" class="btn-start" onclick="fieldMoveTo('akihabara')" style="font-size:0.85rem;padding:14px">秋葉原</button>
+        <button id="move-btn-tokyoeki"  class="btn-start" onclick="fieldMoveTo('tokyoeki')"  style="font-size:0.85rem;padding:14px">東京駅</button>
+      </div>
+      <button onclick="fieldHideMoveModal()" style="width:100%;padding:10px;background:none;border:1px solid #334;border-radius:8px;color:#556677;font-size:0.82rem;cursor:pointer">キャンセル</button>
+    </div>
+  </div>
+  <!-- ブラックアウト -->
+  <div id="field-blackout" style="display:none;position:absolute;inset:0;z-index:40;background:#000;opacity:0;pointer-events:none;transition:opacity 0.4s"></div>
+  <!-- イベントモーダル -->
+  <div id="field-event-modal" style="display:none;position:absolute;inset:0;z-index:30;align-items:center;justify-content:center;background:rgba(0,0,0,0.65)">
+    <div style="width:min(88vw,360px);background:#0a0a18;border:2px solid #334466;border-radius:16px;padding:24px 20px">
+      <div id="field-event-title" style="color:#ffd166;font-size:1rem;font-weight:bold;margin-bottom:12px;text-align:center"></div>
+      <div id="field-event-text" style="color:#c8d8f0;font-size:0.84rem;line-height:1.65;white-space:pre-wrap;margin-bottom:18px;text-align:center"></div>
+      <div id="field-event-btns" style="display:flex;gap:10px;justify-content:center"></div>
+    </div>
   </div>
 </div>
 
@@ -1236,6 +1283,12 @@ function showOnlineLobby() {
 function showStartScreen() {
   document.getElementById('online-lobby').style.display = 'none';
   document.getElementById('deck-screen').style.display = 'none';
+  // フィールド経由で開いた場合はフィールドに戻る
+  if (typeof _fieldReturnTarget !== 'undefined' && _fieldReturnTarget) {
+    _fieldReturnTarget = false;
+    showFieldScreen();
+    return;
+  }
   document.getElementById('start-screen').style.display = 'flex';
   if (ws) { ws.close(); ws = null; }
   setOnlineStatus('');
@@ -1650,7 +1703,7 @@ function showDeckScreen() {
 }
 function hideDeckScreen() {
   document.getElementById('deck-screen').style.display = 'none';
-  document.getElementById('start-screen').style.display = 'flex';
+  showStartScreen();
 }
 function startGameFromDeck() {
   cpuMode = 'normal';
@@ -3911,13 +3964,387 @@ function rulesNav(dir) {
 }
 
 // ===== SPLASH SCREEN =====
+// ===== FIELD EXPLORATION MODE =====
+
+const FIELD_AREAS = {
+  shinjuku:  { id:'shinjuku',  name:'新宿',   bg:'images/探索/街/sinnjyuku.PNG', charY: 0.80 },
+  shibuya:   { id:'shibuya',   name:'渋谷',   bg:'images/探索/街/shibuya.PNG',   charY: 0.74 },
+  akihabara: { id:'akihabara', name:'秋葉原', bg:'images/探索/街/akihabara.PNG', charY: 0.80 },
+  tokyoeki:  { id:'tokyoeki',  name:'東京駅', bg:'images/探索/街/tokyoeki.PNG',  charY: 0.75 },
+};
+
+const FIELD_CHAR_DEF = {
+  src: 'images/探索/被写体6_norm.png',
+  cols: 4, rows: 2, frameCount: 8, fps: 8,
+  sheetW: 1168, sheetH: 926,
+  cropH: 463,
+  rowCropY: [0, 0],
+};
+
+const fieldState = {
+  areaId: 'shinjuku',
+  exploring: false,
+  charXRatio: 0.15,
+  charDir: 1,
+  animFrame: 0, animTimer: 0,
+  eventCooldown: 0,
+  imgs: {}, charCanvas: null,
+  loopId: null,
+};
+let _fieldReturnTarget = false;
+
+const FIELD_IDLE_SRCS = [1,2].map(n => `images/探索/待機モーション/taiki${n}.png`);
+
+function fieldLoadAssets(onDone) {
+  const s = fieldState;
+  s.imgs = {};
+  s.idleImgs = [];
+  let pending = Object.keys(FIELD_AREAS).length + 1 + FIELD_IDLE_SRCS.length;
+  const dec = () => { if (--pending === 0) onDone(); };
+
+  for (const [id, area] of Object.entries(FIELD_AREAS)) {
+    const img = new Image();
+    img.onload = () => { s.imgs['bg_'+id] = img; dec(); };
+    img.onerror = dec;
+    img.src = area.bg;
+  }
+  const charImg = new Image();
+  charImg.onload = () => { s.charCanvas = charImg; dec(); };
+  charImg.onerror = dec;
+  charImg.src = FIELD_CHAR_DEF.src;
+
+  FIELD_IDLE_SRCS.forEach(src => {
+    const img = new Image();
+    img.onload = () => { s.idleImgs.push(img); dec(); };
+    img.onerror = dec;
+    img.src = src;
+  });
+}
+
+function fieldPickIdle(dir) {
+  // dir: 1=右向き→taiki1, -1=左向き→taiki2, 省略=現在のcharDir
+  const s = fieldState;
+  if (!s.idleImgs || s.idleImgs.length < 2) return;
+  const d = dir !== undefined ? dir : s.charDir;
+  s.idleImg = d === -1 ? s.idleImgs[1] : s.idleImgs[0]; // taiki1=右, taiki2=左
+}
+
+function fieldMakeCharTransparent(img) {
+  const oc = document.createElement('canvas');
+  oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+  const octx = oc.getContext('2d');
+  octx.drawImage(img, 0, 0);
+  const id = octx.getImageData(0, 0, oc.width, oc.height);
+  const d = id.data;
+  // 左端中央付近で背景色をサンプル（スプラッター避け）
+  const si = (300 * oc.width + 12) * 4;
+  const bgR = d[si], bgG = d[si+1], bgB = d[si+2];
+  for (let i = 0; i < d.length; i += 4) {
+    const dr = d[i]-bgR, dg = d[i+1]-bgG, db = d[i+2]-bgB;
+    if (Math.sqrt(dr*dr + dg*dg + db*db) < 52) d[i+3] = 0;
+  }
+  octx.putImageData(id, 0, 0);
+  return oc;
+}
+
+function fieldToggleExplore() {
+  const s = fieldState;
+  s.exploring = !s.exploring;
+  const btn = document.getElementById('field-explore-btn');
+  if (btn) btn.textContent = s.exploring ? '⏸ 探索中' : '🔍 探索';
+  if (s.exploring) {
+    s.eventCooldown = 180 + Math.floor(Math.random() * 300);
+  } else {
+    fieldPickIdle(); // 停止時にランダム待機画像
+  }
+}
+
+function fieldShowMoveModal() {
+  const modal = document.getElementById('field-move-modal');
+  modal.style.display = 'flex';
+  ['shibuya','shinjuku','akihabara','tokyoeki'].forEach(id => {
+    const b = document.getElementById('move-btn-'+id);
+    if (!b) return;
+    const isCurrent = id === fieldState.areaId;
+    b.disabled = isCurrent;
+    b.style.opacity = isCurrent ? '0.35' : '';
+    b.style.cursor = isCurrent ? 'default' : '';
+  });
+}
+function fieldHideMoveModal() { document.getElementById('field-move-modal').style.display = 'none'; }
+
+function fieldMoveTo(areaId) {
+  fieldHideMoveModal();
+  const s = fieldState;
+  s.exploring = false;
+  s.walkingOff = true;
+  s.moveTarget = areaId;
+  s.charDir = 1;
+  // 2秒後にブラックアウト
+  setTimeout(() => {
+    if (s.walkingOff) fieldDoAreaSwitch(areaId);
+  }, 2000);
+}
+
+function fieldDoAreaSwitch(areaId) {
+  const blackout = document.getElementById('field-blackout');
+  blackout.style.display = 'block';
+  blackout.style.pointerEvents = 'all';
+  requestAnimationFrame(() => { blackout.style.opacity = '1'; });
+  setTimeout(() => {
+    fieldState.areaId = areaId;
+    fieldState.walkingOff = false;
+    fieldState.moveTarget = null;
+    const bg = document.getElementById('field-bg');
+    if (bg && fieldState.imgs['bg_'+areaId]) bg.src = fieldState.imgs['bg_'+areaId].src;
+    const nameEl = document.getElementById('field-area-name');
+    if (nameEl) nameEl.textContent = FIELD_AREAS[areaId].name;
+    fieldState.charXRatio = 0.15;
+    fieldState.charDir = 1;
+    const btn = document.getElementById('field-explore-btn');
+    if (btn) btn.textContent = '🔍 探索';
+    fieldPickIdle(1); // 移動後は右向き(taiki1)
+    setTimeout(() => {
+      blackout.style.opacity = '0';
+      setTimeout(() => { blackout.style.display = 'none'; blackout.style.pointerEvents = 'none'; }, 400);
+    }, 300);
+  }, 400);
+}
+
+function fieldGoToDeck() {
+  _fieldReturnTarget = true;
+  fieldStop();
+  document.getElementById('field-screen').style.display = 'none';
+  showDeckScreen();
+}
+
+function fieldStop() {
+  const s = fieldState;
+  s.exploring = false;
+  if (s.loopId) { cancelAnimationFrame(s.loopId); s.loopId = null; }
+  const canvas = document.getElementById('field-canvas');
+  if (canvas && canvas._resize) window.removeEventListener('resize', canvas._resize);
+}
+
+function fieldUpdateAndDraw() {
+  const canvas = document.getElementById('field-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const s = fieldState;
+  const dpr = window.devicePixelRatio || 1;
+  const cw = canvas.width / dpr, ch = canvas.height / dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+
+  if (s.walkingOff) {
+    // 移動先へ退場（探索とは独立）
+    const spd = 0.003;
+    s.charXRatio += spd;
+    if (++s.animTimer >= Math.round(60 / FIELD_CHAR_DEF.fps)) {
+      s.animTimer = 0;
+      s.animFrame = (s.animFrame + 1) % 4;
+    }
+    // タイマーでブラックアウト済み
+  } else if (s.exploring) {
+    // 探索中の通常移動
+    const spd = 0.003;
+    s.charXRatio += s.charDir * spd;
+    if (s.charXRatio > 0.87) { s.charXRatio = 0.87; s.charDir = -1; }
+    if (s.charXRatio < 0.10) { s.charXRatio = 0.10; s.charDir =  1; }
+    // アニメ
+    if (++s.animTimer >= Math.round(60 / FIELD_CHAR_DEF.fps)) {
+      s.animTimer = 0;
+      s.animFrame = (s.animFrame + 1) % 4;
+    }
+    // イベント
+    if (--s.eventCooldown <= 0) {
+      s.eventCooldown = 300 + Math.floor(Math.random() * 360);
+      triggerFieldEvent();
+    }
+  }
+
+  // 背景シフト量（共通）
+  const bgImg = s.imgs['bg_' + s.areaId];
+  let bgShift = 0;
+  if (bgImg && bgImg.naturalWidth) {
+    const scale = Math.min(cw / bgImg.naturalWidth, ch / bgImg.naturalHeight);
+    const renderedH = bgImg.naturalHeight * scale;
+    bgShift = (ch - renderedH) / 2;
+  }
+  const charY = ch * (FIELD_AREAS[s.areaId].charY ?? 0.75) - bgShift;
+  const charX = s.charXRatio * cw;
+  const dispH = ch * 0.20;
+
+  if ((s.exploring || s.walkingOff) && s.charCanvas) {
+    // 歩行アニメ描画
+    const { cols, cropH, rowCropY, sheetW, sheetH } = FIELD_CHAR_DEF;
+    const frameW = sheetW / cols;
+    const frameH = sheetH / 2;
+    const dispW = dispH * (frameW / cropH);
+    const col = s.animFrame % cols;
+    const row = Math.floor(s.animFrame / cols);
+    const cropY = rowCropY[row];
+    ctx.save();
+    if (s.charDir === -1) {
+      ctx.translate(charX, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(s.charCanvas, col*frameW, row*frameH+cropY, frameW, cropH,
+        -dispW/2, charY-dispH, dispW, dispH);
+    } else {
+      ctx.drawImage(s.charCanvas, col*frameW, row*frameH+cropY, frameW, cropH,
+        charX-dispW/2, charY-dispH, dispW, dispH);
+    }
+    ctx.restore();
+  } else if (s.idleImgs && s.idleImgs[0]) {
+    // 待機画像: 常にtaiki1を使い、左向きは反転
+    const baseImg = s.idleImgs[0];
+    const idleH = ch * 0.19;
+    const idleW = idleH * (baseImg.naturalWidth / baseImg.naturalHeight);
+    ctx.save();
+    if (s.charDir === -1) {
+      ctx.translate(charX, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(baseImg, -idleW/2, charY - idleH, idleW, idleH);
+    } else {
+      ctx.drawImage(baseImg, charX - idleW/2, charY - idleH, idleW, idleH);
+    }
+    ctx.restore();
+  }
+}
+
+function fieldLoop() {
+  fieldUpdateAndDraw();
+  fieldState.loopId = requestAnimationFrame(fieldLoop);
+}
+
+function triggerFieldEvent() {
+  const s = fieldState;
+  s.exploring = false;
+  const btn = document.getElementById('field-explore-btn');
+  if (btn) btn.textContent = '🔍 探索';
+  fieldPickIdle();
+
+  const roll = Math.random();
+  if (roll < 0.45) {
+    showFieldEventModal('⚔️ エンカウント！', 'バトラーが現れた！\n勝負を挑んでくる！', [
+      { label:'⚔️ 勝負する', action: () => { closeFieldEventModal(); fieldStartBattle(); } },
+      { label:'逃げる',      action: closeFieldEventModal },
+    ]);
+  } else if (roll < 0.78) {
+    const msgs = [
+      '「このカード、強すぎじゃない…？」\n通りすがりのプレイヤーがつぶやいた。',
+      '路地裏に古いカードが落ちていた。\n（アイテム機能は近日実装予定）',
+      '「EVANTISの大会が近いらしいぞ」\n噂が耳に入った。',
+      '街の電光掲示板にEVANTISの\n広告が映し出されている。',
+    ];
+    showFieldEventModal('💬 発見', msgs[Math.floor(Math.random()*msgs.length)], [
+      { label:'OK', action: closeFieldEventModal },
+    ]);
+  } else {
+    // 何もなし、すぐ再開
+    s.exploring = true;
+    if (btn) btn.textContent = '⏸ 探索中';
+    s.eventCooldown = 300 + Math.floor(Math.random() * 360);
+  }
+}
+
+function showFieldEventModal(title, text, btns) {
+  const modal = document.getElementById('field-event-modal');
+  if (!modal) return;
+  document.getElementById('field-event-title').textContent = title;
+  document.getElementById('field-event-text').textContent  = text;
+  const btnArea = document.getElementById('field-event-btns');
+  btnArea.innerHTML = '';
+  btns.forEach(b => {
+    const el = document.createElement('button');
+    el.className = 'btn-start';
+    el.style.cssText = 'font-size:0.82rem;padding:8px 20px';
+    el.textContent = b.label;
+    el.onclick = b.action;
+    btnArea.appendChild(el);
+  });
+  modal.style.display = 'flex';
+}
+
+function closeFieldEventModal() {
+  document.getElementById('field-event-modal').style.display = 'none';
+}
+
+function fieldStartBattle() {
+  _fieldReturnTarget = true;
+  fieldStop();
+  document.getElementById('field-screen').style.display = 'none';
+  if (typeof cpuMode !== 'undefined') cpuMode = 'normal';
+  if (typeof cpuDifficulty !== 'undefined') cpuDifficulty = 'normal';
+  startGame();
+}
+
+function showFieldScreen(areaId) {
+  areaId = areaId || fieldState.areaId || 'shinjuku';
+  document.getElementById('start-screen').style.display = 'none';
+  const scr = document.getElementById('field-screen');
+  scr.style.display = 'block';
+  const loading = document.getElementById('field-loading');
+  if (loading) loading.style.display = 'flex';
+
+  const s = fieldState;
+  s.areaId = areaId;
+  s.exploring = false;
+  s.walkingOff = false;
+  s.charXRatio = 0.15; s.charDir = 1;
+  s.animFrame = 0; s.animTimer = 0;
+  fieldPickIdle(); // 開始時にランダム待機画像を選択
+  const btn = document.getElementById('field-explore-btn');
+  if (btn) btn.textContent = '🔍 探索';
+  const nameEl = document.getElementById('field-area-name');
+  if (nameEl) nameEl.textContent = FIELD_AREAS[areaId].name;
+  // モーダル閉じる
+  document.getElementById('field-event-modal').style.display = 'none';
+  document.getElementById('field-move-modal').style.display  = 'none';
+
+  function startField() {
+    if (loading) loading.style.display = 'none';
+    fieldPickIdle(); // ロード完了後に確実に選択
+    const bg = document.getElementById('field-bg');
+    if (bg && s.imgs['bg_'+areaId]) bg.src = s.imgs['bg_'+areaId].src;
+    const canvas = document.getElementById('field-canvas');
+    const setCanvasSize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width  = window.innerWidth  * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width  = window.innerWidth  + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    };
+    setCanvasSize();
+    if (canvas._resize) window.removeEventListener('resize', canvas._resize);
+    canvas._resize = setCanvasSize;
+    window.addEventListener('resize', canvas._resize);
+    fieldStop();
+    s.loopId = requestAnimationFrame(fieldLoop);
+  }
+
+  if (s.charCanvas) startField();
+  else fieldLoadAssets(startField);
+}
+
+function hideFieldScreen() {
+  fieldStop();
+  document.getElementById('field-screen').style.display = 'none';
+  document.getElementById('field-event-modal').style.display = 'none';
+  document.getElementById('field-move-modal').style.display  = 'none';
+  document.getElementById('start-screen').style.display = 'flex';
+  _fieldReturnTarget = false;
+}
+
+// ===== END FIELD MODE =====
+
 (function() {
   const splash = document.getElementById('splash-screen');
   const startScreen = document.getElementById('start-screen');
   // ロゴフェードイン (300ms後に開始)
   setTimeout(() => splash.classList.add('logo-in'), 300);
   // フェードアウト開始 (ロゴ表示 1s + ホールド 1.2s = 2200ms)
-  setTimeout(() => splash.classList.add('fade-out'), 2200);
+setTimeout(() => splash.classList.add('fade-out'), 2200);
   // スプラッシュ非表示＆スタート画面表示 (フェードアウト 0.6s後)
   setTimeout(() => {
     splash.style.display = 'none';
