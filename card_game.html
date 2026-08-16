@@ -3967,7 +3967,7 @@ function rulesNav(dir) {
 // ===== FIELD EXPLORATION MODE =====
 
 const FIELD_AREAS = {
-  shinjuku:  { id:'shinjuku',  name:'新宿',   bg:'images/探索/街/sinnjyuku.PNG', charY: 0.80 },
+  shinjuku:  { id:'shinjuku',  name:'新宿',   bg:'images/探索/街/sinnjyuku.PNG', charY: 0.70 },
   shibuya:   { id:'shibuya',   name:'渋谷',   bg:'images/探索/街/shibuya.PNG',   charY: 0.74 },
   akihabara: { id:'akihabara', name:'秋葉原', bg:'images/探索/街/akihabara.PNG', charY: 0.80 },
   tokyoeki:  { id:'tokyoeki',  name:'東京駅', bg:'images/探索/街/tokyoeki.PNG',  charY: 0.75 },
@@ -4171,7 +4171,11 @@ function fieldUpdateAndDraw() {
     const renderedH = bgImg.naturalHeight * scale;
     bgShift = (ch - renderedH) / 2;
   }
-  const charY = ch * (FIELD_AREAS[s.areaId].charY ?? 0.75) - bgShift;
+  // PWAとブラウザのビューポート差分を補正
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+  const browserBarOffset = isStandalone ? 0 : (window.screen.height - window.innerHeight) * 0.15;
+  const charY = ch * (FIELD_AREAS[s.areaId].charY ?? 0.75) - bgShift - browserBarOffset;
   const charX = s.charXRatio * cw;
   const dispH = ch * 0.20;
 
