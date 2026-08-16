@@ -4177,7 +4177,8 @@ function fieldUpdateAndDraw() {
   const browserBarOffset = isStandalone ? 0 : (window.screen.height - window.innerHeight) * 0.20;
   const charY = ch * (FIELD_AREAS[s.areaId].charY ?? 0.75) - bgShift + browserBarOffset;
   const charX = s.charXRatio * cw;
-  const dispH = ch * 0.20;
+  const sizeBase = window.screen.height;
+  const dispH = sizeBase * 0.20;
 
   if ((s.exploring || s.walkingOff) && s.charCanvas) {
     // 歩行アニメ描画
@@ -4202,7 +4203,7 @@ function fieldUpdateAndDraw() {
   } else if (s.idleImgs && s.idleImgs[0]) {
     // 待機画像: 常にtaiki1を使い、左向きは反転
     const baseImg = s.idleImgs[0];
-    const idleH = ch * 0.19;
+    const idleH = sizeBase * 0.19;
     const idleW = idleH * (baseImg.naturalWidth / baseImg.naturalHeight);
     ctx.save();
     if (s.charDir === -1) {
