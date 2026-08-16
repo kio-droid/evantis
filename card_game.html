@@ -4174,8 +4174,8 @@ function fieldUpdateAndDraw() {
   // PWAとブラウザのビューポート差分を補正
   const isStandalone = window.navigator.standalone === true
     || window.matchMedia('(display-mode: standalone)').matches;
-  const browserBarOffset = isStandalone ? 0 : (window.screen.height - window.innerHeight) * 0.15;
-  const charY = ch * (FIELD_AREAS[s.areaId].charY ?? 0.75) - bgShift - browserBarOffset;
+  const browserBarOffset = isStandalone ? 0 : (window.screen.height - window.innerHeight) * 0.20;
+  const charY = ch * (FIELD_AREAS[s.areaId].charY ?? 0.75) - bgShift + browserBarOffset;
   const charX = s.charXRatio * cw;
   const dispH = ch * 0.20;
 
